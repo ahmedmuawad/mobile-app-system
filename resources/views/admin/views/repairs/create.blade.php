@@ -62,7 +62,7 @@
                     </div>
                 </div>
 
-                <!-- التصنيف والمنتجات -->
+                <!-- التصنيف وقطع الغيار -->
                 <div id="hardware_fields" class="row w-100" style="display: none;">
                     <div class="col-md-4 mb-3">
                         <label>التصنيف</label>
@@ -75,29 +75,35 @@
                     </div>
                     <div class="col-md-8 mb-3">
                         <label>قطع الغيار</label>
-                        <select name="spare_part_ids[]" id="product_select" class="form-control" multiple>
-                            <!-- يتم تعبئته ديناميكيًا -->
-                        </select>
+                        <select name="spare_part_ids[]" id="product_select" class="form-control" multiple></select>
+                        <div id="selected_parts_list" class="mt-3"></div>
                     </div>
                 </div>
 
                 <!-- المصنعية والخصم والإجمالي -->
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label>تكلفة المصنعية <span class="text-danger">*</span></label>
                         <input type="number" name="repair_cost" step="0.01" min="0" class="form-control" required oninput="calculateTotal()">
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label>الخصم</label>
                         <input type="number" name="discount" id="discount" step="0.01" min="0" class="form-control" value="0" oninput="calculateTotal()">
                     </div>
-                    <div class="col-md-4 mb-3">
-                        <label>الإجمالي</label>
-                        <input type="text" id="total" class="form-control bg-light" readonly>
-                    </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label>المدفوع الآن</label>
-                        <input type="number" step="0.01" name="paid" class="form-control" value="0">
+                        <input type="number" step="0.01" name="paid" id="paid" class="form-control" value="0" oninput="calculateTotal()">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label>الإجمالي</label>
+                        <input type="text" id="total" name="total" class="form-control bg-light" readonly>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-4 mb-3">
+                        <label>المتبقي</label>
+                        <input type="text" id="remaining" class="form-control bg-light" readonly>
                     </div>
                 </div>
 
@@ -126,54 +132,119 @@
 @push('scripts')
 <script>
     const allProducts = @json($products);
+    let selectedQuantities = {};
 
-    document.getElementById('repair_type').addEventListener('change', function () {
-        const hardwareFields = document.getElementById('hardware_fields');
-        hardwareFields.style.display = (this.value === 'hardware' || this.value === 'both') ? 'flex' : 'none';
-        if (this.value !== 'hardware' && this.value !== 'both') resetHardwareFields();
-    });
+    const repairType = document.getElementById('repair_type');
+    const hardwareFields = document.getElementById('hardware_fields');
+    const productSelect = document.getElementById('product_select');
+    const selectedPartsList = document.getElementById('selected_parts_list');
 
-    document.getElementById('category_select').addEventListener('change', function () {
-        const categoryId = this.value;
-        const productSelect = document.getElementById('product_select');
+    function toggleHardwareFields() {
+        hardwareFields.style.display = (repairType.value === 'hardware' || repairType.value === 'both') ? 'flex' : 'none';
+        if (repairType.value !== 'hardware' && repairType.value !== 'both') {
+            productSelect.innerHTML = '';
+            selectedPartsList.innerHTML = '';
+            document.getElementById('category_select').value = '';
+        }
+    }
+
+    repairType.addEventListener('change', toggleHardwareFields);
+
+    function populateProducts(categoryId) {
         productSelect.innerHTML = '';
+        const filtered = allProducts.filter(p => p.category_id == categoryId);
 
-        if (!categoryId) return;
-
-        const filteredProducts = allProducts.filter(p => p.category_id == categoryId);
-        filteredProducts.forEach(product => {
-            const option = document.createElement('option');
-            option.value = product.id;
-            option.text = `${product.name} - ${product.sale_price} ج.م`;
-            option.setAttribute('data-price', product.sale_price);
-            productSelect.appendChild(option);
+        filtered.forEach(product => {
+            const opt = document.createElement('option');
+            opt.value = product.id;
+            opt.text = `${product.name} - ${product.sale_price} ج.م`;
+            opt.dataset.price = product.sale_price;
+            productSelect.appendChild(opt);
         });
-    });
+    }
 
-    document.getElementById('product_select').addEventListener('change', calculateTotal);
+    function renderQuantityInputs() {
+        selectedPartsList.innerHTML = '';
+        const checkedOptions = document.querySelectorAll('#product_select option:checked');
+
+        checkedOptions.forEach(opt => {
+            const productId = String(opt.value);
+            const productName = opt.text;
+            const qtyValue = selectedQuantities[productId] !== undefined ? selectedQuantities[productId] : 1;
+
+            const div = document.createElement('div');
+            div.className = 'd-flex align-items-center mb-2 border p-2 rounded bg-light shadow-sm';
+
+            const label = document.createElement('span');
+            label.className = 'flex-grow-1 fw-bold';
+            label.textContent = productName;
+
+            const input = document.createElement('input');
+            input.type = 'number';
+            input.name = `quantities[${productId}]`;
+            input.value = qtyValue;
+            input.min = 1;
+            input.className = 'form-control w-25 ms-2';
+
+            input.addEventListener('input', function () {
+                selectedQuantities[productId] = parseInt(this.value) || 1;
+                calculateTotal();
+            });
+
+            div.appendChild(label);
+            div.appendChild(input);
+            selectedPartsList.appendChild(div);
+        });
+    }
 
     function calculateTotal() {
-        const selectedOptions = document.querySelectorAll('#product_select option:checked');
-        let partTotal = 0;
-        selectedOptions.forEach(option => {
-            partTotal += parseFloat(option.getAttribute('data-price')) || 0;
+        let totalParts = 0;
+
+        document.querySelectorAll('#product_select option:checked').forEach(opt => {
+            const productId = String(opt.value);
+            const price = parseFloat(opt.dataset.price) || 0;
+            const qty = selectedQuantities[productId] !== undefined ? selectedQuantities[productId] : 1;
+            totalParts += price * qty;
         });
 
         const repairCost = parseFloat(document.querySelector('[name="repair_cost"]').value) || 0;
         const discount = parseFloat(document.getElementById('discount').value) || 0;
-        let total = partTotal + repairCost - discount;
+        const paid = parseFloat(document.getElementById('paid').value) || 0;
+
+        let total = totalParts + repairCost - discount;
         if (total < 0) total = 0;
+
+        let remaining = total - paid;
+        if (remaining < 0) remaining = 0;
+
         document.getElementById('total').value = total.toFixed(2);
+        document.getElementById('remaining').value = remaining.toFixed(2);
     }
+
+    document.getElementById('category_select').addEventListener('change', function () {
+        populateProducts(this.value);
+        selectedQuantities = {};
+        renderQuantityInputs();
+        calculateTotal();
+    });
+
+    productSelect.addEventListener('mousedown', function (e) {
+        e.preventDefault();
+        const option = e.target;
+        option.selected = !option.selected;
+        renderQuantityInputs();
+        calculateTotal();
+    });
 
     function resetForm() {
-        resetHardwareFields();
         document.getElementById('total').value = '';
+        document.getElementById('remaining').value = '';
+        selectedQuantities = {};
+        renderQuantityInputs();
     }
 
-    function resetHardwareFields() {
-        document.getElementById('product_select').innerHTML = '';
-        document.getElementById('category_select').value = '';
-    }
+    window.addEventListener('DOMContentLoaded', () => {
+        toggleHardwareFields();
+    });
 </script>
 @endpush
