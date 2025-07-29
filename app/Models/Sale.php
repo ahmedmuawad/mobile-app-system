@@ -9,7 +9,15 @@ class Sale extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['customer_id', 'customer_name', 'total', 'profit'];
+    protected $fillable = [
+        'customer_id',
+        'customer_name',
+        'total',
+        'profit',
+        'discount',
+        'paid',
+        'remaining',
+    ];
 
     // علاقة العميل (قد تكون null لو العميل يدوي)
     public function customer()
@@ -21,5 +29,11 @@ class Sale extends Model
     public function saleItems()
     {
         return $this->hasMany(SaleItem::class);
+    }
+
+    // ✅ علاقة الدفعات المرتبطة بالفاتورة
+    public function customerPayments()
+    {
+    return $this->hasMany(CustomerPayment::class);
     }
 }

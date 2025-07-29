@@ -24,6 +24,7 @@
             <h5>رقم الفاتورة: #{{ $sale->id }}</h5>
         </div>
 
+        <!-- بيانات الفاتورة -->
         <table class="table table-bordered">
             <tr>
                 <th>العميل</th>
@@ -56,6 +57,7 @@
             </tr>
         </table>
 
+        <!-- تفاصيل الأصناف -->
         <h4 class="mt-4">تفاصيل الأصناف:</h4>
         <table class="table table-striped table-bordered text-center">
             <thead>
@@ -86,7 +88,44 @@
             </tfoot>
         </table>
 
-        <!-- أسفل الفاتورة -->
+        <!-- تفاصيل المدفوعات -->
+        <h4 class="mt-4">المدفوعات:</h4>
+        <table class="table table-bordered text-center">
+            <tr>
+                <th>الإجمالي بعد الخصم</th>
+                <td>{{ number_format($sale->total, 2) }} جنيه</td>
+            </tr>
+            <tr>
+                <th>المدفوع</th>
+                <td>{{ number_format($sale->paid, 2) }} جنيه</td>
+            </tr>
+            <tr>
+                <th>المتبقي</th>
+                <td>{{ number_format($sale->remaining, 2) }} جنيه</td>
+            </tr>
+        </table>
+
+        @if($sale->customerPayments && $sale->customerPayments->count())
+            <h5 class="mt-3">سجل الدفعات:</h5>
+            <table class="table table-sm table-striped table-bordered text-center">
+                <thead>
+                    <tr>
+                        <th>التاريخ</th>
+                        <th>المبلغ</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($sale->customerPayments as $payment)
+                        <tr>
+                            <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d H:i') }}</td>
+                            <td>{{ number_format($payment->amount, 2) }} جنيه</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endif
+
+        <!-- الفوتر -->
         <hr>
         <div class="text-center mt-3">
             @if($setting?->address)

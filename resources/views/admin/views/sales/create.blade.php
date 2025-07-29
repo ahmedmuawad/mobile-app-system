@@ -82,6 +82,7 @@
             <label>الخصم (جنيه)</label>
             <input type="number" step="0.01" name="discount" class="form-control" value="0">
         </div>
+
         <div class="form-group">
             <label>إجمالي الفاتورة قبل الخصم</label>
             <input type="number" id="total-before-discount" class="form-control" readonly>
@@ -91,6 +92,12 @@
             <label>إجمالي الفاتورة بعد الخصم</label>
             <input type="number" id="total-after-discount" class="form-control" readonly>
         </div>
+
+        <div class="form-group">
+            <label>الدفعة المقدّمة (اختياري)</label>
+            <input type="number" name="initial_payment" class="form-control" step="0.01" value="0">
+        </div>
+
         <br>
         <button type="submit" class="btn btn-primary">حفظ الفاتورة</button>
     </form>
@@ -100,7 +107,21 @@
 @push('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', function () {
-        // حساب إجمالي الصنف
+        function calculateInvoiceTotals() {
+            const itemTotals = document.querySelectorAll('.item-total');
+            let totalBeforeDiscount = 0;
+
+            itemTotals.forEach(input => {
+                totalBeforeDiscount += parseFloat(input.value) || 0;
+            });
+
+            const discount = parseFloat(document.querySelector('[name="discount"]').value) || 0;
+            const totalAfterDiscount = totalBeforeDiscount - discount;
+
+            document.getElementById('total-before-discount').value = totalBeforeDiscount.toFixed(2);
+            document.getElementById('total-after-discount').value = (totalAfterDiscount >= 0 ? totalAfterDiscount : 0).toFixed(2);
+        }
+
         function calculateItemTotal(index) {
             const quantityInput = document.querySelector(`[name="items[${index}][quantity]"]`);
             const priceInput = document.querySelector(`[name="items[${index}][sale_price]"]`);
@@ -112,10 +133,10 @@
                 const price = parseFloat(priceInput.value) || 0;
                 const total = quantity * price;
                 totalInput.value = total.toFixed(2);
+                calculateInvoiceTotals();
             }
         }
 
-        // تعبئة السعر عند اختيار المنتج
         document.addEventListener('change', function (e) {
             if (e.target.classList.contains('product-select')) {
                 const selectedOption = e.target.options[e.target.selectedIndex];
@@ -129,15 +150,17 @@
             }
         });
 
-        // حساب الإجمالي عند تغيير الكمية
         document.addEventListener('input', function (e) {
             if (e.target.classList.contains('quantity-input')) {
                 const index = e.target.dataset.index;
                 calculateItemTotal(index);
             }
+
+            if (e.target.name === 'discount') {
+                calculateInvoiceTotals();
+            }
         });
 
-        // إضافة صف جديد
         document.getElementById('add-row').addEventListener('click', function () {
             const tableBody = document.querySelector('#items-table tbody');
             const rowCount = tableBody.querySelectorAll('tr').length;
@@ -170,54 +193,12 @@
             tableBody.appendChild(newRow);
         });
 
-        // حذف صف
         document.addEventListener('click', function (e) {
             if (e.target.classList.contains('btn-remove-row')) {
                 e.target.closest('tr').remove();
+                calculateInvoiceTotals();
             }
         });
-        function calculateInvoiceTotals() {
-    const itemTotals = document.querySelectorAll('.item-total');
-    let totalBeforeDiscount = 0;
-
-    itemTotals.forEach(input => {
-        totalBeforeDiscount += parseFloat(input.value) || 0;
-    });
-
-    const discount = parseFloat(document.querySelector('[name="discount"]').value) || 0;
-    const totalAfterDiscount = totalBeforeDiscount - discount;
-
-    document.getElementById('total-before-discount').value = totalBeforeDiscount.toFixed(2);
-    document.getElementById('total-after-discount').value = (totalAfterDiscount >= 0 ? totalAfterDiscount : 0).toFixed(2);
-}
-
-// استدعاء بعد كل حساب إجمالي صنف
-function calculateItemTotal(index) {
-    const quantityInput = document.querySelector(`[name="items[${index}][quantity]"]`);
-    const priceInput = document.querySelector(`[name="items[${index}][sale_price]"]`);
-    const totalInputs = document.querySelectorAll('.item-total');
-    const totalInput = totalInputs[index];
-
-    if (quantityInput && priceInput && totalInput) {
-        const quantity = parseFloat(quantityInput.value) || 0;
-        const price = parseFloat(priceInput.value) || 0;
-        const total = quantity * price;
-        totalInput.value = total.toFixed(2);
-        calculateInvoiceTotals(); // تحديث الإجمالي الكلي
-    }
-}
-
-// تحديث الإجمالي عند تغيير الخصم
-document.querySelector('[name="discount"]').addEventListener('input', calculateInvoiceTotals);
-
-// إعادة حساب الإجمالي عند حذف صف
-document.addEventListener('click', function (e) {
-    if (e.target.classList.contains('btn-remove-row')) {
-        e.target.closest('tr').remove();
-        calculateInvoiceTotals();
-    }
-});
-
     });
 </script>
 @endpush
