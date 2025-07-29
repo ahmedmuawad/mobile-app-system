@@ -9,25 +9,29 @@ class Product extends Model
 {
     use HasFactory;
 
-    /**
-     * الحقول المسموح بتعبئتها تلقائيًا (Mass Assignment)
-     */
     protected $fillable = [
-        'name',             // اسم المنتج
-        'image',            // صورة المنتج (اختياري)
-        'purchase_price',   // سعر الشراء
-        'sale_price',       // سعر البيع
-        'barcode',          // الباركود (اختياري)
-        'description',      // وصف المنتج (اختياري)
-        'stock',            // الكمية المتوفرة (افتراضيًا 1)
-        'category_id',      // التصنيف المرتبط
+        'name',
+        'image',
+        'purchase_price',
+        'sale_price',
+        'barcode',
+        'description',
+        'stock',
+        'category_id',
     ];
 
-    /**
-     * علاقة المنتج بتصنيف واحد
-     */
     public function category()
     {
         return $this->belongsTo(Category::class);
+    }
+
+    /**
+     * علاقة Many-to-Many مع الإصلاحات باستخدام pivot (مع الكمية)
+     */
+    public function repairs()
+    {
+        return $this->belongsToMany(Repair::class, 'repair_spare_part', 'spare_part_id', 'repair_id')
+                    ->withPivot('quantity')
+                    ->withTimestamps();
     }
 }

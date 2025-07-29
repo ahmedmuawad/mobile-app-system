@@ -3,24 +3,40 @@
 @section('title', 'سداد مستحقات فاتورة')
 
 @section('content')
-<div class="container">
-    <h4>سداد مستحق لفاتورة #{{ $repair->id }}</h4>
-    @php
-    $paidAmount = $repair->payments->sum('amount');
-    $remaining = $repair->total - $paidAmount;
-@endphp
-
-    <p>الإجمالي: <strong>{{ number_format($repair->total, 2) }}</strong> جنيه</p>
-    <p>المدفوع مسبقًا: <strong>{{ number_format($repair->payments->sum('amount'), 2) }}</strong> جنيه</p>
-    <p>المتبقي: <strong>{{ number_format($repair->total - $repair->payments->sum('amount'), 2) }}</strong> جنيه</p>
-
-<form action="{{ route('admin.repairs.payments.store', $repair->id) }}" method="POST">
-        @csrf
-        <div class="form-group">
-            <label>المبلغ المسدّد الآن:</label>
-            <input type="number" name="amount" step="0.01" class="form-control" required max="{{ $repair->total - $repair->payments->sum('amount') }}">
+<div class="container-fluid">
+    <div class="card card-success">
+        <div class="card-header">
+            <h4 class="card-title">💵 سداد مستحق لفاتورة #{{ $repair->id }}</h4>
         </div>
-        <button class="btn btn-success">سداد</button>
-    </form>
+
+        @php
+            $paidAmount = $repair->payments->sum('amount');
+            $remaining = $repair->total - $paidAmount;
+        @endphp
+
+        <div class="card-body">
+            <div class="mb-3">
+                <p><strong>الإجمالي:</strong> {{ number_format($repair->total, 2) }} جنيه</p>
+                <p><strong>المدفوع مسبقًا:</strong> {{ number_format($paidAmount, 2) }} جنيه</p>
+                <p><strong>المتبقي:</strong> {{ number_format($remaining, 2) }} جنيه</p>
+            </div>
+
+            <form action="{{ route('admin.repairs.payments.store', $repair->id) }}" method="POST">
+                @csrf
+                <div class="form-group">
+                    <label for="amount">المبلغ المسدّد الآن:</label>
+                    <input type="number" name="amount" id="amount" step="0.01" class="form-control"
+                        required max="{{ $remaining }}" placeholder="أدخل المبلغ المطلوب سداده">
+                </div>
+
+                <div class="form-group text-end mt-3">
+                    <button type="submit" class="btn btn-success">
+                        💰 سداد المبلغ
+                    </button>
+                    <a href="{{ route('admin.repairs.index') }}" class="btn btn-secondary">رجوع</a>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 @endsection
