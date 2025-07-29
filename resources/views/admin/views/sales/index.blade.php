@@ -134,7 +134,7 @@
             autoWidth: false,
             paging: true,
             searching: true,
-            ordering: true
+            ordering: false;
         });
     });
 </script>
