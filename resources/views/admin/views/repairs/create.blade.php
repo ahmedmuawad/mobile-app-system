@@ -200,26 +200,31 @@
     function calculateTotal() {
         let totalParts = 0;
 
+        // حساب إجمالي قطع الغيار
         document.querySelectorAll('#product_select option:checked').forEach(opt => {
             const productId = String(opt.value);
             const price = parseFloat(opt.dataset.price) || 0;
             const qty = selectedQuantities[productId] !== undefined ? selectedQuantities[productId] : 1;
-            totalParts += price * qty;
+            totalParts += price * qty; // جمع قيمة قطع الغيار
         });
 
-        const repairCost = parseFloat(document.querySelector('[name="repair_cost"]').value) || 0;
-        const discount = parseFloat(document.getElementById('discount').value) || 0;
-        const paid = parseFloat(document.getElementById('paid').value) || 0;
+        const repairCost = parseFloat(document.querySelector('[name="repair_cost"]').value) || 0; // تكلفة المصنعية
+        const discount = parseFloat(document.getElementById('discount').value) || 0; // الخصم
+        const paid = parseFloat(document.getElementById('paid').value) || 0; // المدفوع
 
+        // حساب الإجمالي بعد الخصم
         let total = totalParts + repairCost - discount;
         if (total < 0) total = 0;
 
+        // حساب المبلغ المتبقي
         let remaining = total - paid;
         if (remaining < 0) remaining = 0;
 
+        // عرض الإجمالي والمتبقي
         document.getElementById('total').value = total.toFixed(2);
         document.getElementById('remaining').value = remaining.toFixed(2);
     }
+
 
     document.getElementById('category_select').addEventListener('change', function () {
         populateProducts(this.value);

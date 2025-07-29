@@ -15,7 +15,6 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\POSController;
 
-
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -29,8 +28,11 @@ Route::get('/', function () {
 
 // مسار تسجيل الدخول/التسجيل
 Auth::routes();
-    // الصفحة الرئيسية (Dashboard)
-    Route::get('/home', [DashboardController::class, 'index'])->name('home');Route::get('/logout', function () {
+
+// الصفحة الرئيسية (Dashboard)
+Route::get('/home', [DashboardController::class, 'index'])->name('home');
+
+Route::get('/logout', function () {
     Auth::logout();
     return redirect('/login');
 });
@@ -68,6 +70,9 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     Route::get('repairs/{id}/payment', [RepairController::class, 'showPaymentForm'])->name('repairs.payments.create');
     Route::post('repairs/{id}/payment', [RepairController::class, 'storePayment'])->name('repairs.payments.store');
 
+    // ✅ تحديث حالة الاستلام للصيانة
+    Route::post('/repairs/update-status', [RepairController::class, 'updateStatus'])->name('repairs.updateStatus');
+
     // الموردين
     Route::resource('suppliers', SupplierController::class);
 
@@ -85,7 +90,7 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     //POS
     Route::get('/pos', [POSController::class, 'index'])->name('pos');
     Route::post('/pos', [POSController::class, 'store'])->name('pos.store');
-    
+
     // لو في راوتات إضافية لاحقًا:
     // Route::resource('services', ServiceController::class);
 });

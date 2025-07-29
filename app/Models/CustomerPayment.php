@@ -12,7 +12,9 @@ class CustomerPayment extends Model
         'amount',
         'note',
         'repair_id',
-        'sale_id', // ✅ أضفناه
+        'sale_id',
+        'payment_date', // ✅ أضفناه
+        
     ];
 
     public function customer(): BelongsTo
