@@ -14,6 +14,9 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\POSController;
+use App\Http\Controllers\WalletProviderController;
+use App\Http\Controllers\WalletController;
+use App\Http\Controllers\WalletTransactionController;
 
 /*
 |--------------------------------------------------------------------------
@@ -21,26 +24,27 @@ use App\Http\Controllers\POSController;
 |--------------------------------------------------------------------------
 */
 
-// الصفحة الرئيسية (مثلاً صفحة ترحيبية)
+// الصفحة الترحيبية
 Route::get('/', function () {
     return view('welcome');
 });
 
-// مسار تسجيل الدخول/التسجيل
+// المصادقة
 Auth::routes();
 
-// الصفحة الرئيسية (Dashboard)
+// الصفحة الرئيسية
 Route::get('/home', [DashboardController::class, 'index'])->name('home');
 
+// تسجيل الخروج
 Route::get('/logout', function () {
     Auth::logout();
     return redirect('/login');
 });
 
-// مجموعة Routes داخل لوحة التحكم
+// لوحة التحكم
 Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
-    // الصفحة الرئيسية (Dashboard)
+    // Dashboard
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
 
     // التصنيفات
@@ -49,10 +53,10 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     // المنتجات
     Route::resource('products', ProductController::class);
 
-    // العملاء 
+    // العملاء
     Route::resource('customers', CustomerController::class);
 
-    // المبيعات 
+    // المبيعات
     Route::resource('sales', SaleController::class);
 
     // الإعدادات
@@ -60,17 +64,10 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     Route::post('/settings', [SettingController::class, 'update'])->name('settings.update');
 
     // الصيانة
-    // جلب المنتجات حسب التصنيف
     Route::get('/repairs/products-by-category/{id}', [RepairController::class, 'getProductsByCategory'])->name('repairs.products-by-category');
-
-    // فواتير الصيانة
     Route::resource('repairs', RepairController::class);
-
-    // سداد مستحقات الصيانة
     Route::get('repairs/{id}/payment', [RepairController::class, 'showPaymentForm'])->name('repairs.payments.create');
     Route::post('repairs/{id}/payment', [RepairController::class, 'storePayment'])->name('repairs.payments.store');
-
-    // ✅ تحديث حالة الاستلام للصيانة
     Route::post('/repairs/update-status', [RepairController::class, 'updateStatus'])->name('repairs.updateStatus');
 
     // الموردين
@@ -82,17 +79,22 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // المصروفات
     Route::resource('expenses', ExpenseController::class);
-    
+
     // التقارير
     Route::get('/reports/sales', [ReportController::class, 'salesReport'])->name('reports.sales');
     Route::get('/reports/purchases', [ReportController::class, 'purchasesReport'])->name('reports.purchases');
-Route::get('reports/repairs', [ReportController::class, 'repairsReport'])->name('reports.repairs');
+    Route::get('/reports/repairs', [ReportController::class, 'repairsReport'])->name('reports.repairs');
 
-
-    //POS
+    // نقطة البيع (POS)
     Route::get('/pos', [POSController::class, 'index'])->name('pos');
     Route::post('/pos', [POSController::class, 'store'])->name('pos.store');
+    // مزودي المحافظ
+    Route::resource('wallet_providers', WalletProviderController::class);
 
-    // لو في راوتات إضافية لاحقًا:
-    // Route::resource('services', ServiceController::class);
+    // المحافظ
+    Route::resource('wallets', WalletController::class);
+
+    // المعاملات
+    Route::resource('wallet_transactions', WalletTransactionController::class);
+
 });

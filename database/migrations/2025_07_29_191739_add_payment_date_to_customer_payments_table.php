@@ -8,7 +8,7 @@ use Illuminate\Support\Facades\Schema;
 return new class extends Migration {
     public function up(): void {
         Schema::table('customer_payments', function (Blueprint $table) {
-            $table->date('payment_date')->nullable()->after('amount');
+            // $table->date('payment_date')->nullable()->after('amount');
         });
     }
 

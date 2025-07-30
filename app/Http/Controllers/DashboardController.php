@@ -20,7 +20,7 @@ class DashboardController extends Controller
         // إحصائيات اليوم
         $today_sales     = Sale::whereDate('created_at', $today)->sum('total');
         $today_repairs   = Repair::whereDate('created_at', $today)->sum('total');
-        $today_expenses  = Expense::whereDate('date', $today)->sum('amount');
+        $today_expenses  = Expense::whereDate('expense_date', $today)->sum('amount');
         $today_purchases = Purchase::whereDate('created_at', $today)->sum('total_amount');
         $today_profit    = $today_sales + $today_repairs - $today_expenses;
 
@@ -56,7 +56,7 @@ class DashboardController extends Controller
         // إحصائيات الشهر
         $month_sales     = Sale::whereBetween('created_at', [$monthStart, now()])->sum('total');
         $month_repairs   = Repair::whereBetween('created_at', [$monthStart, now()])->sum('total');
-        $month_expenses  = Expense::whereBetween('date', [$monthStart, now()])->sum('amount');
+        $month_expenses  = Expense::whereBetween('expense_date', [$monthStart, now()])->sum('amount');
         $month_purchases = Purchase::whereBetween('created_at', [$monthStart, now()])->sum('total_amount');
         $month_profit    = $month_sales + $month_repairs - $month_expenses;
 

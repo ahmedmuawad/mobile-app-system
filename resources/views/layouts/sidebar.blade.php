@@ -110,7 +110,33 @@
                         <p class="ms-2">الإعدادات</p>
                     </a>
                 </li>
+                 <!-- المحافظ الإلكترونية -->
+                <li class="nav-item">
+                    <a href="{{ route('admin.wallets.index') }}" class="nav-link {{ request()->is('admin/wallets*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#55efc4" viewBox="0 0 24 24">
+                            <path d="M2 7c0-1.1.9-2 2-2h16c1.1 0 2 .9 2 2v2H2V7zm0 4h20v6c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2v-6z" />
+                        </svg>
+                        <p class="ms-2">المحافظ</p>
+                    </a>
+                </li>
 
+                <li class="nav-item">
+                    <a href="{{ route('admin.wallet_providers.index') }}" class="nav-link {{ request()->is('admin/wallet_providers*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#81ecec" viewBox="0 0 24 24">
+                            <path d="M12 2a10 10 0 100 20 10 10 0 000-20zm1 14.5h-2v-2h2v2zm0-4h-2V7h2v5.5z" />
+                        </svg>
+                        <p class="ms-2">مزودو المحافظ</p>
+                    </a>
+                </li>
+
+                <li class="nav-item">
+                    <a href="{{ route('admin.wallet_transactions.index') }}" class="nav-link {{ request()->is('admin/wallet_transactions*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#00cec9" viewBox="0 0 24 24">
+                            <path d="M12 8c-2.2 0-4 1.8-4 4s1.8 4 4 4 4-1.8 4-4-1.8-4-4-4zm0-6C6.5 2 2 6.5 2 12s4.5 10 10 10 10-4.5 10-10S17.5 2 12 2z" />
+                        </svg>
+                        <p class="ms-2">حركات المحافظ</p>
+                    </a>
+                </li>
                 <!-- التقارير -->
                 <li class="nav-item has-treeview {{ request()->is('admin/reports/*') ? 'menu-open' : '' }}">
                     <a href="#" class="nav-link {{ request()->is('admin/reports/*') ? 'active' : '' }}">
@@ -146,6 +172,7 @@
                         </li>
                     </ul>
                 </li>
+                
 
             </ul>
         </nav>
