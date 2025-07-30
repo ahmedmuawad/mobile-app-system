@@ -86,6 +86,8 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     // التقارير
     Route::get('/reports/sales', [ReportController::class, 'salesReport'])->name('reports.sales');
     Route::get('/reports/purchases', [ReportController::class, 'purchasesReport'])->name('reports.purchases');
+Route::get('reports/repairs', [ReportController::class, 'repairsReport'])->name('reports.repairs');
+
 
     //POS
     Route::get('/pos', [POSController::class, 'index'])->name('pos');

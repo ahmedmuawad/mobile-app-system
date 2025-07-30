@@ -10,13 +10,16 @@
         <div class="col-12 mb-3">
             <h4 class="mb-3">إحصائيات اليوم</h4>
         </div>
+        
         @php
             $cards = [
-                ['label' => 'مبيعات اليوم', 'value' => $today_sales, 'color' => 'success'],
-                ['label' => 'مصروفات اليوم', 'value' => $today_expenses, 'color' => 'danger'],
-                ['label' => 'مبيعات الصيانة', 'value' => $today_repairs, 'color' => 'primary'],
-                ['label' => 'مشتريات اليوم', 'value' => $today_purchases, 'color' => 'warning'],
-                ['label' => 'أرباح اليوم', 'value' => $today_profit, 'color' => 'info'],
+                ['label' => 'مبيعات اليوم', 'value' => $today_sales, 'color' => 'success', 'icon' => 'fas fa-shopping-cart'],
+                ['label' => 'مصروفات اليوم', 'value' => $today_expenses, 'color' => 'danger', 'icon' => 'fas fa-dollar-sign'],
+                ['label' => 'مبيعات الصيانة', 'value' => $today_repairs, 'color' => 'primary', 'icon' => 'fas fa-cogs'],
+                ['label' => 'أرباح قطع غيار الصيانة', 'value' => $today_repair_product_profit, 'color' => 'secondary', 'icon' => 'fas fa-box'],
+                ['label' => 'مصنعية الصيانة والسوفتوير', 'value' => $today_repair_labor_profit, 'color' => 'warning', 'icon' => 'fas fa-tools'],
+                ['label' => 'مشتريات اليوم', 'value' => $today_purchases, 'color' => 'warning', 'icon' => 'fas fa-truck'],
+                ['label' => 'أرباح اليوم', 'value' => $today_profit, 'color' => 'secondary', 'icon' => 'fas fa-chart-line'],
             ];
         @endphp
 
@@ -28,8 +31,11 @@
                         <p>{{ $card['label'] }}</p>
                     </div>
                     <div class="icon">
-                        <i class="fas fa-chart-line"></i>
+                        <i class="{{ $card['icon'] }}"></i>
                     </div>
+                    <a href="#" class="small-box-footer">
+                        المزيد <i class="fas fa-arrow-circle-left"></i>
+                    </a>
                 </div>
             </div>
         @endforeach
@@ -44,13 +50,16 @@
         <div class="col-12 mt-5">
             <h4 class="mb-3">ملخص الشهر الحالي</h4>
         </div>
+
         @php
             $month_cards = [
-                ['label' => 'مبيعات الشهر', 'value' => $month_sales, 'color' => 'success'],
-                ['label' => 'مصروفات الشهر', 'value' => $month_expenses, 'color' => 'danger'],
-                ['label' => 'مبيعات الصيانة', 'value' => $month_repairs, 'color' => 'primary'],
-                ['label' => 'مشتريات الشهر', 'value' => $month_purchases, 'color' => 'warning'],
-                ['label' => 'أرباح الشهر', 'value' => $month_profit, 'color' => 'info'],
+                ['label' => 'مبيعات الشهر', 'value' => $month_sales, 'color' => 'success', 'icon' => 'fas fa-shopping-cart'],
+                ['label' => 'مصروفات الشهر', 'value' => $month_expenses, 'color' => 'danger', 'icon' => 'fas fa-dollar-sign'],
+                ['label' => 'مبيعات الصيانة', 'value' => $month_repairs, 'color' => 'primary', 'icon' => 'fas fa-cogs'],
+                ['label' => 'أرباح قطع غيار الصيانة', 'value' => $month_repair_product_profit, 'color' => 'secondary', 'icon' => 'fas fa-box'],
+                ['label' => 'مصنعية الصيانة والسوفتوير', 'value' => $month_repair_labor_profit, 'color' => 'warning', 'icon' => 'fas fa-tools'],
+                ['label' => 'مشتريات الشهر', 'value' => $month_purchases, 'color' => 'warning', 'icon' => 'fas fa-truck'],
+                ['label' => 'أرباح الشهر', 'value' => $month_profit, 'color' => 'secondary', 'icon' => 'fas fa-chart-line'],
             ];
         @endphp
 
@@ -62,8 +71,11 @@
                         <p>{{ $card['label'] }}</p>
                     </div>
                     <div class="icon">
-                        <i class="fas fa-chart-pie"></i>
+                        <i class="{{ $card['icon'] }}"></i>
                     </div>
+                    <a href="#" class="small-box-footer">
+                        المزيد <i class="fas fa-arrow-circle-left"></i>
+                    </a>
                 </div>
             </div>
         @endforeach

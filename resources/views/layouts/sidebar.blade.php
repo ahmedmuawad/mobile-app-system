@@ -136,6 +136,14 @@
                                 <p class="ms-2">تقرير المشتريات</p>
                             </a>
                         </li>
+                        <li class="nav-item">
+                            <a href="{{ route('admin.reports.repairs') }}" class="nav-link {{ request()->routeIs('admin.reports.repairs') ? 'active' : '' }}">
+                                <svg class="nav-icon" width="16" height="16" fill="#e17055" viewBox="0 0 24 24">
+                                    <path d="M3 3h18v2H3V3zm0 4h12v2H3V7zm0 4h18v2H3v-2z"/>
+                                </svg>
+                                <p class="ms-2">تقرير الصيانه</p>
+                            </a>
+                        </li>
                     </ul>
                 </li>
 
