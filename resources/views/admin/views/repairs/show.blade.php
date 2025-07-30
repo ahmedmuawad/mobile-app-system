@@ -31,7 +31,29 @@
             </div>
 
             <div class="mb-3">
-                <strong>وصف العطل:</strong> {{ $repair->problem_description }}
+                <strong>وصف العطل:</strong> @if($repair->spareParts->isNotEmpty())
+    <table class="table table-bordered">
+        <thead>
+            <tr>
+                <th>اسم قطعة الغيار</th>
+                <th>سعر القطعة</th>
+                <th>الكمية</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($repair->spareParts as $sparePart)
+                <tr>
+                    <td>{{ $sparePart->name }}</td>
+                    <td>{{ number_format($sparePart->sale_price, 2) }} جنيه</td>
+                    <td>{{ $sparePart->pivot->quantity }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+@else
+    <p>لا توجد قطع غيار مرفقة.</p>
+@endif
+
             </div>
 
             <div class="row mb-3">
@@ -138,12 +160,43 @@
                 </div>
 
                 <hr>
-
+                <style>
+                    table th {
+                        font-size: 13px; /* أو اختر الحجم الذي يناسبك */
+                    }
+                        table td {
+                        font-size: 12px; /* أو اختر الحجم الذي يناسبك */
+                    }
+                </style>
                 <div class="section">
+                    
                     <p><strong>نوع الجهاز:</strong> ${repair.device_type}</p>
                     <p><strong>وصف العطل:</strong> ${repair.problem_description}</p>
-                    <p><strong>قطعة الغيار:</strong> ${sparePart?.name || '---'}</p>
-                    <p><strong>سعر القطعة:</strong> ${sparePart?.sale_price ? parseFloat(sparePart.sale_price).toFixed(2) : '0.00'} جنيه</p>
+                    <p><strong>قطع الغيار:</strong></p>
+                            @if($repair->spareParts->isNotEmpty())
+                                <table class="table table-bordered">
+                                    <thead>
+                                        <tr>
+                                            <th>اسم قطعة الغيار</th>
+                                            <th>الكمية</th>
+                                            <th>سعر القطعة</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($repair->spareParts as $sparePart)
+                                            <tr>
+                                                <td>{{ $sparePart->name }}</td>
+                                                <td>{{ $sparePart->pivot->quantity }}</td>
+                                                <td>{{ number_format($sparePart->sale_price, 2) }} جنيه</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            @else
+                                <p>لا توجد قطع غيار مرفقة.</p>
+                            @endif
+
+                    
                 </div>
 
                 <hr>
@@ -159,7 +212,8 @@
 
                 <hr>
 
-                ${store.invoice_footer ? `<div class="footer">${store.invoice_footer}</div>` : ''}
+                ${store.invoice_footer ? `<div class="footer">${store.invoice_footer} </br>تصميم وبرمجة ستوب جروب للبرمجيات 01030889618</div>` : ''}
+                
             </div>
         `;
 

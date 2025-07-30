@@ -27,69 +27,75 @@ class RepairController extends Controller
             return view('admin.views.repairs.create', compact('customers', 'categories', 'products'));
         }
 
-    public function store(Request $request)
-        {
-            $request->validate([
-                'customer_id'         => 'nullable|exists:customers,id',
-                'customer_name'       => 'nullable|string|max:255',
-                'device_type'         => 'required|string|max:255',
-                'problem_description' => 'required|string',
-                'spare_part_id'       => 'nullable|exists:products,id',
-                'repair_cost'         => 'required|numeric|min:0',
-                'status'              => 'required|in:جاري,تم الإصلاح,لم يتم الإصلاح',
-                'discount'            => 'nullable|numeric|min:0',
-                'paid'                => 'nullable|numeric|min:0',
-            ]);
+public function store(Request $request)
+{
+    // تحقق من المدخلات
+    $request->validate([
+        'customer_id' => 'nullable|exists:customers,id',
+        'customer_name' => 'nullable|string|max:255',
+        'device_type' => 'required|string|max:255',
+        'problem_description' => 'required|string',
+        'spare_part_id' => 'nullable|exists:products,id',
+        'repair_cost' => 'required|numeric|min:0',
+        'status' => 'required|in:جاري,تم الإصلاح,لم يتم الإصلاح',
+        'discount' => 'nullable|numeric|min:0',
+        'paid' => 'nullable|numeric|min:0',
+    ]);
 
-            $sparePartPrice = 0;
-            if ($request->spare_part_id) {
-                $spareParts = Product::whereIn('id', $request->spare_part_id)->get();
-                foreach ($spareParts as $sparePart) {
-                    $sparePartPrice += $sparePart->sale_price;  // جمع أسعار القطع
-                }
-            }
-
-
-            // حساب الإجمالي بناءً على تكلفة المصنعية، وقطع الغيار، والخصم
-            $total = $sparePartPrice + $request->repair_cost - ($request->discount ?? 0);
-            $total = max($total, 0);
-            $paid = $request->paid ?? 0;
-
-            if ($paid > $total) {
-                return back()->with('error', '❌ المبلغ المدفوع يتجاوز إجمالي الفاتورة.')->withInput();
-            }
-
-            // حفظ الفاتورة
-            $repair = new Repair();
-            $repair->customer_id         = $request->customer_id;
-            $repair->customer_name       = $request->customer_name;
-            $repair->device_type         = $request->device_type;
-            $repair->problem_description = $request->problem_description;
-            $repair->repair_cost         = $request->repair_cost;
-            $repair->discount            = $request->discount ?? 0;
-            $repair->total               = $total;
-            $repair->status              = $request->status;
-            $repair->paid                = $paid;
-            $repair->remaining           = $total - $paid;
-            $repair->delivery_status     = 'not_delivered';
-            $repair->save();
-
-            // ربط قطعة الغيار إذا تم تحديدها
-            if ($request->spare_part_id) {
-                $repair->spareParts()->attach($request->spare_part_id, ['quantity' => 1]);
-            }
-
-            // تسجيل المدفوعات إذا كان هناك مبلغ مدفوع
-            if ($paid > 0) {
-                CustomerPayment::create([
-                    'repair_id'    => $repair->id,
-                    'amount'       => $paid,
-                    'payment_date' => now(),
-                ]);
-            }
-
-            return redirect()->route('admin.repairs.index')->with('success', '✅ تم حفظ فاتورة الصيانة بنجاح.');
+    // حساب أسعار قطع الغيار المحددة
+    $sparePartPrice = 0;
+    if ($request->spare_part_id) {
+        $spareParts = Product::whereIn('id', $request->spare_part_id)->get();
+        foreach ($spareParts as $sparePart) {
+            $sparePartPrice += $sparePart->sale_price * ($request->quantities[$sparePart->id] ?? 1);
         }
+    }
+
+    // حساب الإجمالي
+    $total = $sparePartPrice + $request->repair_cost - ($request->discount ?? 0);
+    $total = max($total, 0);
+    $paid = $request->paid ?? 0;
+
+    // التحقق من المدفوعات
+    if ($paid > $total) {
+        return back()->with('error', '❌ المبلغ المدفوع يتجاوز إجمالي الفاتورة.')->withInput();
+    }
+
+    // إنشاء الفاتورة
+    $repair = Repair::create([
+        'customer_id' => $request->customer_id,
+        'customer_name' => $request->customer_name,
+        'device_type' => $request->device_type,
+        'problem_description' => $request->problem_description,
+        'repair_cost' => $request->repair_cost,
+        'discount' => $request->discount ?? 0,
+        'total' => $total,
+        'status' => $request->status,
+        'paid' => $paid,
+        'remaining' => $total - $paid,
+        'delivery_status' => 'not_delivered',
+    ]);
+
+    // إضافة قطع الغيار مع الكميات إلى جدول الربط
+    if ($request->has('spare_part_id')) {
+        foreach ($request->spare_part_id as $index => $sparePartId) {
+            $quantity = $request->quantities[$sparePartId] ?? 1;
+            $repair->spareParts()->attach($sparePartId, ['quantity' => $quantity]);
+        }
+    }
+
+    // تسجيل المدفوعات
+    if ($paid > 0) {
+        CustomerPayment::create([
+            'repair_id' => $repair->id,
+            'amount' => $paid,
+            'payment_date' => now(),
+        ]);
+    }
+
+    return redirect()->route('admin.repairs.index')->with('success', '✅ تم حفظ فاتورة الصيانة بنجاح.');
+}
+
 
     public function edit($id)
         {
@@ -237,7 +243,7 @@ class RepairController extends Controller
             Expense::create([
                 'name' => 'استرجاع مبلغ',
                 'amount' => $paidAmount,
-                'description' => 'استرجاع مبلغ للعميل بسبب رفض الجهاز',
+                'description' => 'استرجاع مبلغ للعميل بسبب رفض الجهاز. رقم الفاتورة: ' . $repair->id,
                 'expensable_id' => $this->id,
                 'expensable_type' => Repair::class,
             ]);

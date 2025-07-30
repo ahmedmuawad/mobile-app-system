@@ -75,7 +75,11 @@
                     </div>
                     <div class="col-md-8 mb-3">
                         <label>قطع الغيار</label>
-                        <select name="spare_part_ids[]" id="product_select" class="form-control" multiple></select>
+                        <select name="spare_part_id[]" multiple id="product_select" class="form-control select2">
+                            @foreach($products as $product)
+                                <option value="{{ $product->id }}" data-price="{{ $product->sale_price }}" data-category-id="{{ $product->category_id }}">{{ $product->name }}</option>
+                            @endforeach
+                        </select>
                         <div id="selected_parts_list" class="mt-3"></div>
                     </div>
                 </div>
@@ -224,7 +228,6 @@
         document.getElementById('total').value = total.toFixed(2);
         document.getElementById('remaining').value = remaining.toFixed(2);
     }
-
 
     document.getElementById('category_select').addEventListener('change', function () {
         populateProducts(this.value);

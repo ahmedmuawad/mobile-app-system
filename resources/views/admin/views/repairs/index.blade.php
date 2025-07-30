@@ -2,89 +2,101 @@
 
 @section('content')
     <div class="container-fluid">
-        <h4 class="mb-4">فواتير الصيانة</h4>
+        <h4 class="mb-4"> الصيانة</h4>
 
         @if(session('success'))
             <div class="alert alert-success">{{ session('success') }}</div>
         @endif
 
         <div class="card">
-            <div class="card-body table-responsive p-0">
-                <table class="table table-bordered table-striped text-center mb-0">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>العميل</th>
-                            <th>نوع الجهاز</th>
-                            <th>الوصف</th>
-                            <th>الإجمالي</th>
-                            <th>المدفوع</th>
-                            <th>المتبقي</th>
-                            <th>حالة الصيانة</th>
-                            <th>حالة التسليم</th>
-                            <th style="width: 160px;">الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($repairs as $repair)
-                            <tr>
-                                <td>{{ $repair->id }}</td>
-                                <td>{{ $repair->customer?->name ?? $repair->customer_name }}</td>
-                                <td>{{ $repair->device_type }}</td>
-                                <td>{{ $repair->problem_description }}</td>
-                                <td>{{ $repair->total }}</td>
-                                <td>{{ $repair->paid }}</td>
-                                <td>{{ $repair->remaining }}</td>
-                                <td>
-                                    @if($repair->delivery_status === 'not_delivered')
-                                        جاري
-                                    @elseif($repair->delivery_status === 'delivered')
-                                        تم الإصلاح
-                                    @elseif($repair->delivery_status === 'rejected')
-                                        لم يتم الإصلاح
-                                    @endif
-                                </td>
-
-                                <td>
-                                    {{ $repair->delivery_status === 'delivered' ? 'تم التسليم' :
-                                       ($repair->delivery_status === 'rejected' ? 'الجهاز مرفوض - استرجاع المبلغ' :
-                                       'لم يتم التسليم') }}
-                                </td>
-                                <td>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-primary dropdown-toggle"
-                                                data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            <i class="fas fa-ellipsis-v"></i> اختر إجراء
-                                        </button>
-                                        <div class="dropdown-menu dropdown-menu-right">
-                                            <a href="{{ route('admin.repairs.edit', $repair->id) }}" class="dropdown-item">
-                                                <i class="fas fa-edit text-warning me-2"></i> تعديل
-                                            </a>
-                                            <a href="{{ route('admin.repairs.show', $repair->id) }}" class="dropdown-item">
-                                                <i class="fas fa-eye text-info me-2"></i> عرض
-                                            </a>
-                                            @if($repair->delivery_status !== 'rejected')
-                                                    <button type="button"
-                                                        class="dropdown-item text-secondary change-status-btn"
-                                                        data-id="{{ $repair->id }}"
-                                                        data-delivery="{{ $repair->delivery_status }}"
-                                                        data-paid="{{ $repair->paid }}"
-                                                        data-remaining="{{ $repair->remaining }}"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#changeStatusModal">
-
-                                                    <i class="fas fa-exchange-alt me-2"></i> تغيير حالة التسليم
-                                                </button>
-                                            @endif
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
+    <div class="card-header">
+        <h4 class="mb-0">فواتير الصيانة</h4>
+    </div>
+    <div class="card-body">
+        <!-- زر إضافة فاتورة جديدة داخل الكارد -->
+        <div class="mb-4">
+            <a href="{{ route('admin.repairs.create') }}" class="btn btn-success">
+                <i class="fas fa-plus-circle me-2"></i> إضافة فاتورة صيانة جديدة
+            </a>
         </div>
+
+        <div class="table-responsive p-0">
+            <table class="table table-bordered table-striped text-center mb-0">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>العميل</th>
+                        <th>نوع الجهاز</th>
+                        <th>الوصف</th>
+                        <th>الإجمالي</th>
+                        <th>المدفوع</th>
+                        <th>المتبقي</th>
+                        <th>حالة الصيانة</th>
+                        <th>حالة التسليم</th>
+                        <th style="width: 160px;">الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($repairs as $repair)
+                        <tr>
+                            <td>{{ $repair->id }}</td>
+                            <td>{{ $repair->customer?->name ?? $repair->customer_name }}</td>
+                            <td>{{ $repair->device_type }}</td>
+                            <td>{{ $repair->problem_description }}</td>
+                            <td>{{ $repair->total }}</td>
+                            <td>{{ $repair->paid }}</td>
+                            <td>{{ $repair->remaining }}</td>
+                            <td>
+                                @if($repair->delivery_status === 'not_delivered')
+                                    جاري
+                                @elseif($repair->delivery_status === 'delivered')
+                                    تم الإصلاح
+                                @elseif($repair->delivery_status === 'rejected')
+                                    لم يتم الإصلاح
+                                @endif
+                            </td>
+
+                            <td>
+                                {{ $repair->delivery_status === 'delivered' ? 'تم التسليم' :
+                                   ($repair->delivery_status === 'rejected' ? 'الجهاز مرفوض - استرجاع المبلغ' :
+                                   'لم يتم التسليم') }}
+                            </td>
+                            <td>
+                                <div class="btn-group">
+                                    <button type="button" class="btn btn-sm btn-primary dropdown-toggle"
+                                            data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                                        <i class="fas fa-ellipsis-v"></i> اختر إجراء
+                                    </button>
+                                    <div class="dropdown-menu dropdown-menu-right">
+                                        <a href="{{ route('admin.repairs.edit', $repair->id) }}" class="dropdown-item">
+                                            <i class="fas fa-edit text-warning me-2"></i> تعديل
+                                        </a>
+                                        <a href="{{ route('admin.repairs.show', $repair->id) }}" class="dropdown-item">
+                                            <i class="fas fa-eye text-info me-2"></i> عرض
+                                        </a>
+                                        @if($repair->delivery_status !== 'rejected')
+                                            <button type="button"
+                                                    class="dropdown-item text-secondary change-status-btn"
+                                                    data-id="{{ $repair->id }}"
+                                                    data-delivery="{{ $repair->delivery_status }}"
+                                                    data-paid="{{ $repair->paid }}"
+                                                    data-remaining="{{ $repair->remaining }}"
+                                                    data-bs-toggle="modal"
+                                                    data-bs-target="#changeStatusModal">
+                                                <i class="fas fa-exchange-alt me-2"></i> تغيير حالة التسليم
+                                            </button>
+                                        @endif
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
     </div>
 
     <!-- Modal -->
