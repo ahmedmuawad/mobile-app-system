@@ -5,6 +5,9 @@
 @section('content')
 @php
     $setting = \App\Models\Setting::first();
+    $totalBeforeTax = $sale->saleItems->sum(fn($i) => $i->quantity * $i->purchase_price);
+    $totalTax = $sale->saleItems->sum(fn($i) => $i->quantity * ($i->sale_price - $i->purchase_price));
+    $totalAfterTax = $sale->total;
 @endphp
 
 <div class="container-fluid" id="invoice-content">
@@ -64,23 +67,56 @@
                 <tr>
                     <th>المنتج</th>
                     <th>الكمية</th>
-                    <th>سعر البيع</th>
+                    <th>السعر قبل الضريبة</th>
+                    <th>نسبة الضريبة</th>
+                    <th>قيمة الضريبة</th>
+                    <th>السعر بعد الضريبة</th>
                     <th>إجمالي الصنف</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach($sale->saleItems as $item)
+                    @php
+                        $product = \App\Models\Product::find($item->product_id);
+                        $taxRate = $product?->tax_percentage ?? 0;
+
+                        if ($product && $product->is_tax_included) {
+                            // السعر شامل الضريبة
+                            $base = $item->sale_price / (1 + $taxRate / 100);
+                            $taxValue = $item->sale_price - $base;
+                        } else {
+                            // السعر غير شامل الضريبة
+                            $base = $item->sale_price;
+                            $taxValue = $base * ($taxRate / 100);
+                        }
+                        $subtotal = $item->sale_price * $item->quantity;
+                    @endphp
                     <tr>
                         <td>{{ $item->product_name }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>{{ number_format($item->sale_price, 2) }}</td>
-                        <td>{{ number_format($item->quantity * $item->sale_price, 2) }}</td>
+                        <td>{{ number_format($base, 2) }}</td>
+                        <td>{{ $taxRate }}%</td>
+                        <td>{{ number_format($taxValue, 2) }}</td>
+                        <td>
+                            @if($product && !$product->is_tax_included)
+                                {{ number_format($base + $taxValue, 2) }}
+                            @else
+                                {{ number_format($item->sale_price, 2) }}
+                            @endif
+                        </td>
+                        <td>
+                            @if($product && !$product->is_tax_included)
+                                {{ number_format(($base + $taxValue) * $item->quantity, 2) }}
+                            @else
+                                {{ number_format($item->sale_price * $item->quantity, 2) }}
+                            @endif
+                        </td>
                     </tr>
                 @endforeach
             </tbody>
             <tfoot>
                 <tr>
-                    <th colspan="3">الإجمالي الكلي</th>
+                    <th colspan="6">الإجمالي الكلي</th>
                     <th>
                         {{ number_format($sale->saleItems->sum(fn($i) => $i->quantity * $i->sale_price), 2) }} جنيه
                     </th>
@@ -91,6 +127,24 @@
         <!-- تفاصيل المدفوعات -->
         <h4 class="mt-4">المدفوعات:</h4>
         <table class="table table-bordered text-center">
+            <tr>
+                <th>الإجمالي قبل الضريبة</th>
+                <td>{{ number_format($totalBeforeTax, 2) }} جنيه</td>
+            </tr>
+            <tr>
+                <th>قيمة الضريبة</th>
+                <td>{{ number_format($totalTax, 2) }} جنيه</td>
+            </tr>
+            <tr>
+                <th>الإجمالي بعد الضريبة</th>
+                <td>{{ number_format($totalAfterTax, 2) }} جنيه</td>
+            </tr>
+            @if($sale->discount > 0)
+            <tr>
+                <th>الخصم</th>
+                <td>{{ number_format($sale->discount, 2) }} جنيه</td>
+            </tr>
+            @endif
             <tr>
                 <th>الإجمالي بعد الخصم</th>
                 <td>{{ number_format($sale->total, 2) }} جنيه</td>
@@ -124,6 +178,24 @@
                 </tbody>
             </table>
         @endif
+
+        <!-- إجمالي قبل الضريبة -->
+        <div>
+            <strong>الإجمالي قبل الضريبة:</strong>
+            {{ number_format($totalBeforeTax, 2) }}
+        </div>
+
+        <!-- قيمة الضريبة -->
+        <div>
+            <strong>قيمة الضريبة:</strong>
+            {{ number_format($totalTax, 2) }}
+        </div>
+
+        <!-- الإجمالي بعد الضريبة -->
+        <div>
+            <strong>الإجمالي بعد الضريبة:</strong>
+            {{ number_format($totalAfterTax, 2) }}
+        </div>
 
         <!-- الفوتر -->
         <hr>
