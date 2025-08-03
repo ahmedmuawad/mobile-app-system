@@ -30,6 +30,15 @@
                         <p class="ms-2">التصنيفات</p>
                     </a>
                 </li>
+                <!-- العلامات التجارية -->
+                <li class="nav-item">
+                    <a href="{{ route('admin.brands.index') }}" class="nav-link {{ request
+                        ()->is('admin/brands*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#6c5ce7" viewBox="0 0 24 24">
+                            <path d="M3 3h18v18H3V3zm2 2v14h14V5H5z" />
+                        </svg>
+                        <p class="ms-2">العلامات التجارية</p>
+                    </a>
 
                 <!-- المنتجات -->
                 <li class="nav-item">
@@ -101,15 +110,7 @@
                     </a>
                 </li>
 
-                <!-- الاعدادات -->
-                <li class="nav-item">
-                    <a href="{{ route('admin.settings.edit') }}" class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}">
-                        <svg class="nav-icon" width="20" height="20" fill="#636e72" viewBox="0 0 24 24">
-                            <path d="M19.4 15a7.95 7.95 0 0 0 .6-3 7.95 7.95 0 0 0-.6-3l2.1-1.6-2-3.5-2.5 1a8.2 8.2 0 0 0-2.6-1.5l-.4-2.6h-4l-.4 2.6A8.2 8.2 0 0 0 6 4.9l-2.5-1-2 3.5 2.1 1.6a7.95 7.95 0 0 0 0 6L1.5 16.6l2 3.5 2.5-1a8.2 8.2 0 0 0 2.6 1.5l.4 2.6h4l.4-2.6a8.2 8.2 0 0 0 2.6-1.5l2.5 1 2-3.5-2.1-1.6zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
-                        </svg>
-                        <p class="ms-2">الإعدادات</p>
-                    </a>
-                </li>
+
                  <!-- المحافظ الإلكترونية -->
                 <li class="nav-item">
                     <a href="{{ route('admin.wallets.index') }}" class="nav-link {{ request()->is('admin/wallets*') ? 'active' : '' }}">
@@ -172,8 +173,25 @@
                         </li>
                     </ul>
                 </li>
-                
 
+                <!-- الاعدادات -->
+                <li class="nav-item">
+                    <a href="{{ route('admin.settings.edit') }}" class="nav-link {{ request()->is('admin/settings*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#636e72" viewBox="0 0 24 24">
+                            <path d="M19.4 15a7.95 7.95 0 0 0 .6-3 7.95 7.95 0 0 0-.6-3l2.1-1.6-2-3.5-2.5 1a8.2 8.2 0 0 0-2.6-1.5l-.4-2.6h-4l-.4 2.6A8.2 8.2 0 0 0 6 4.9l-2.5-1-2 3.5 2.1 1.6a7.95 7.95 0 0 0 0 6L1.5 16.6l2 3.5 2.5-1a8.2 8.2 0 0 0 2.6 1.5l.4 2.6h4l.4-2.6a8.2 8.2 0 0 0 2.6-1.5l2.5 1 2-3.5-2.1-1.6zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8z"/>
+                        </svg>
+                        <p class="ms-2">الإعدادات</p>
+                    </a>
+                </li>
+                <!-- الفروع -->
+                <li class="nav-item">
+                    <a href="{{ route('admin.branches.index') }}" class="nav-link {{ request()->is('admin/branches*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#dfe6e9" viewBox="0 0 24 24">
+                            <path d="M3 3h18v18H3V3zm2 2v14h14V5H5z"/>
+                        </svg>
+                        <p class="ms-2">الفروع</p>
+                    </a>
+                </li>
             </ul>
         </nav>
     </div>

@@ -17,6 +17,8 @@ use App\Http\Controllers\POSController;
 use App\Http\Controllers\WalletProviderController;
 use App\Http\Controllers\WalletController;
 use App\Http\Controllers\WalletTransactionController;
+use App\Http\Controllers\BranchController;
+use App\Http\Controllers\BrandController;
 
 /*
 |--------------------------------------------------------------------------
@@ -26,7 +28,7 @@ use App\Http\Controllers\WalletTransactionController;
 
 // الصفحة الترحيبية
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('login');
 });
 
 // المصادقة
@@ -47,11 +49,20 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     // Dashboard
     Route::get('/home', [DashboardController::class, 'index'])->name('home');
 
+    // الفروع
+    Route::resource('branches', BranchController::class);
+
     // التصنيفات
     Route::resource('categories', CategoryController::class);
 
+
+    // العلامات التجارية
+    Route::resource('brands', BrandController::class);
+
     // المنتجات
     Route::resource('products', ProductController::class);
+    Route::post('products/bulk', [ProductController::class, 'bulkAction'])->name('products.bulk');
+
 
     // العملاء
     Route::resource('customers', CustomerController::class);
