@@ -54,7 +54,7 @@ class Repair extends Model
     // 💰 Accessor: المبلغ المدفوع
     public function getPaidAmountAttribute()
     {
-        return $this->payments->sum('amount'); 
+        return $this->payments->sum('amount');
     }
 
     // 💸 Accessor: المتبقي
@@ -90,5 +90,11 @@ class Repair extends Model
             'paid' => 0,
             'remaining' => 0,
         ]);
+    }
+
+    // ✅ العلاقة مع الفرع
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 }

@@ -5,9 +5,11 @@
 @section('content')
 @php
     $setting = \App\Models\Setting::first();
-    $totalBeforeTax = $sale->saleItems->sum(fn($i) => $i->quantity * $i->purchase_price);
-    $totalTax = $sale->saleItems->sum(fn($i) => $i->quantity * ($i->sale_price - $i->purchase_price));
-    $totalAfterTax = $sale->total;
+
+    // حساب الإجماليات بدقة من بيانات الأصناف
+    $totalBeforeTax = 0;
+    $totalTax = 0;
+    $totalAfterTax = 0;
 @endphp
 
 <div class="container-fluid" id="invoice-content">
@@ -72,6 +74,7 @@
                     <th>قيمة الضريبة</th>
                     <th>السعر بعد الضريبة</th>
                     <th>إجمالي الصنف</th>
+                    <th>الضريبة مشمولة؟</th>
                 </tr>
             </thead>
             <tbody>
@@ -80,16 +83,16 @@
                         $product = \App\Models\Product::find($item->product_id);
                         $taxRate = $product?->tax_percentage ?? 0;
 
-                        if ($product && $product->is_tax_included) {
-                            // السعر شامل الضريبة
-                            $base = $item->sale_price / (1 + $taxRate / 100);
-                            $taxValue = $item->sale_price - $base;
-                        } else {
-                            // السعر غير شامل الضريبة
-                            $base = $item->sale_price;
-                            $taxValue = $base * ($taxRate / 100);
-                        }
-                        $subtotal = $item->sale_price * $item->quantity;
+                        // دائماً sale_price هو السعر الأساسي قبل الضريبة
+                        $base = $item->sale_price;
+                        $taxValue = $base * ($taxRate / 100);
+                        $priceWithTax = $base + $taxValue;
+                        $subtotal = $priceWithTax * $item->quantity;
+
+                        // جمع الإجماليات
+                        $totalBeforeTax += $base * $item->quantity;
+                        $totalTax += $taxValue * $item->quantity;
+                        $totalAfterTax += $subtotal;
                     @endphp
                     <tr>
                         <td>{{ $item->product_name }}</td>
@@ -97,19 +100,10 @@
                         <td>{{ number_format($base, 2) }}</td>
                         <td>{{ $taxRate }}%</td>
                         <td>{{ number_format($taxValue, 2) }}</td>
+                        <td>{{ number_format($priceWithTax, 2) }}</td>
+                        <td>{{ number_format($subtotal, 2) }}</td>
                         <td>
-                            @if($product && !$product->is_tax_included)
-                                {{ number_format($base + $taxValue, 2) }}
-                            @else
-                                {{ number_format($item->sale_price, 2) }}
-                            @endif
-                        </td>
-                        <td>
-                            @if($product && !$product->is_tax_included)
-                                {{ number_format(($base + $taxValue) * $item->quantity, 2) }}
-                            @else
-                                {{ number_format($item->sale_price * $item->quantity, 2) }}
-                            @endif
+                          {{ $product && $product->is_tax_included ? 'شامل' : 'غير شامل' }}
                         </td>
                     </tr>
                 @endforeach
@@ -117,15 +111,13 @@
             <tfoot>
                 <tr>
                     <th colspan="6">الإجمالي الكلي</th>
-                    <th>
-                        {{ number_format($sale->saleItems->sum(fn($i) => $i->quantity * $i->sale_price), 2) }} جنيه
-                    </th>
+                    <th>{{ number_format($totalAfterTax, 2) }} جنيه</th>
                 </tr>
             </tfoot>
         </table>
 
-        <!-- تفاصيل المدفوعات -->
-        <h4 class="mt-4">المدفوعات:</h4>
+        <!-- تفاصيل المدفوعات والإجماليات -->
+        <h4 class="mt-4">ملخص الفاتورة:</h4>
         <table class="table table-bordered text-center">
             <tr>
                 <th>الإجمالي قبل الضريبة</th>
@@ -171,31 +163,13 @@
                 <tbody>
                     @foreach($sale->customerPayments as $payment)
                         <tr>
-                            <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d H:i') }}</td>
+                            <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d') }}</td>
                             <td>{{ number_format($payment->amount, 2) }} جنيه</td>
                         </tr>
                     @endforeach
                 </tbody>
             </table>
         @endif
-
-        <!-- إجمالي قبل الضريبة -->
-        <div>
-            <strong>الإجمالي قبل الضريبة:</strong>
-            {{ number_format($totalBeforeTax, 2) }}
-        </div>
-
-        <!-- قيمة الضريبة -->
-        <div>
-            <strong>قيمة الضريبة:</strong>
-            {{ number_format($totalTax, 2) }}
-        </div>
-
-        <!-- الإجمالي بعد الضريبة -->
-        <div>
-            <strong>الإجمالي بعد الضريبة:</strong>
-            {{ number_format($totalAfterTax, 2) }}
-        </div>
 
         <!-- الفوتر -->
         <hr>

@@ -62,6 +62,7 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     // المنتجات
     Route::resource('products', ProductController::class);
     Route::post('products/bulk', [ProductController::class, 'bulkAction'])->name('products.bulk');
+    Route::post('products/import', [ProductController::class, 'import'])->name('products.import');
 
 
     // العملاء
@@ -69,6 +70,7 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // المبيعات
     Route::resource('sales', SaleController::class);
+    Route::delete('sales/bulk-delete', [SaleController::class, 'bulkDelete'])->name('sales.bulkDelete');
 
     // الإعدادات
     Route::get('/settings', [SettingController::class, 'edit'])->name('settings.edit');
@@ -80,6 +82,7 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     Route::get('repairs/{id}/payment', [RepairController::class, 'showPaymentForm'])->name('repairs.payments.create');
     Route::post('repairs/{id}/payment', [RepairController::class, 'storePayment'])->name('repairs.payments.store');
     Route::post('/repairs/update-status', [RepairController::class, 'updateStatus'])->name('repairs.updateStatus');
+    Route::post('admin/repairs/{repair}/payments', [RepairController::class, 'storePayment'])->name('admin.repairs.payments.store');
 
     // الموردين
     Route::resource('suppliers', SupplierController::class);
@@ -107,5 +110,9 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // المعاملات
     Route::resource('wallet_transactions', WalletTransactionController::class);
+
+    // الفروع في السايدبار
+Route::get('change-branch/{id}', [App\Http\Controllers\BranchController::class, 'changeBranch'])->name('change.branch');
+
 
 });

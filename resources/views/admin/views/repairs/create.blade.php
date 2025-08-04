@@ -60,6 +60,17 @@
                             <option value="both">كلاهما</option>
                         </select>
                     </div>
+
+                    <!-- الفرع -->
+                    <div class="col-md-6 mb-3">
+                        <label>الفرع <span class="text-danger">*</span></label>
+                        <select name="branch_id" class="form-control" required>
+                            <option value="">-- اختر فرع --</option>
+                            @foreach($branches as $branch)
+                                <option value="{{ $branch->id }}">{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
                 </div>
 
                 <!-- التصنيف وقطع الغيار -->
@@ -77,7 +88,17 @@
                         <label>قطع الغيار</label>
                         <select name="spare_part_id[]" multiple id="product_select" class="form-control select2">
                             @foreach($products as $product)
-                                <option value="{{ $product->id }}" data-price="{{ $product->sale_price }}" data-category-id="{{ $product->category_id }}">{{ $product->name }}</option>
+                                <option value="{{ $product->id }}"
+                                    data-price="{{ $product->sale_price }}"
+                                    data-tax-included="{{ $product->is_tax_included ? 1 : 0 }}"
+                                    data-tax-percentage="{{ $product->tax_percentage ?? 0 }}">
+                                    {{ $product->name }}
+                                    @if($product->is_tax_included)
+                                        (شامل الضريبة)
+                                    @else
+                                        (غير شامل الضريبة)
+                                    @endif
+                                </option>
                             @endforeach
                         </select>
                         <div id="selected_parts_list" class="mt-3"></div>
@@ -181,7 +202,7 @@
 
             const label = document.createElement('span');
             label.className = 'flex-grow-1 fw-bold';
-            label.textContent = productName;
+            label.textContent = productName + (opt.dataset.taxIncluded === "1" ? " (شامل الضريبة)" : " (غير شامل الضريبة)");
 
             const input = document.createElement('input');
             input.type = 'number';

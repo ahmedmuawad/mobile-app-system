@@ -20,9 +20,9 @@ class Branch extends Model
     }
 
     public function users()
-    {
-        return $this->hasMany(User::class);
-    }
+{
+    return $this->belongsToMany(User::class);
+}
 
     /**
      * علاقة Many-to-Many مع المنتجات باستخدام pivot (مع السعر والمخزون)

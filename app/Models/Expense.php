@@ -13,8 +13,18 @@ class Expense extends Model
         'name',
         'description',
         'amount',
-        'date',
+        'expense_date',
         'expensable_id', 'expensable_type'
     ];
-    
+
+    protected static function boot()
+    {
+        parent::boot();
+
+        static::creating(function ($model) {
+            if (empty($model->expense_date)) {
+                $model->expense_date = now();
+            }
+        });
+    }
 }

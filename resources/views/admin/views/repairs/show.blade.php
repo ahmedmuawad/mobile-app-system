@@ -61,7 +61,7 @@
                     <strong>قطعة الغيار:</strong> {{ $repair->sparePart->name ?? '---' }}
                 </div>
                 <div class="col-md-6">
-                    <strong>سعر القطعة:</strong> 
+                    <strong>سعر القطعة:</strong>
                     {{ $repair->sparePart ? number_format($repair->sparePart->sale_price, 2) . ' جنيه' : '---' }}
                 </div>
             </div>
@@ -93,8 +93,16 @@
                 </div>
             </div>
 
-            <div class="mb-3">
-                <strong>تاريخ الإنشاء:</strong> {{ $repair->created_at->format('Y-m-d H:i') }}
+            <div class="row mb-3">
+                <div class="col-md-4">
+                    <strong>تاريخ الإنشاء:</strong> {{ $repair->created_at->format('Y-m-d H:i') }}
+                </div>
+                <div class="col-md-4">
+                    <strong>حالة التسليم:</strong>
+                    <span class="badge bg-{{ $repair->delivery_status === 'delivered' ? 'success' : ($repair->delivery_status === 'rejected' ? 'danger' : 'secondary') }}">
+                        {{ $repair->delivery_status === 'delivered' ? 'تم التسليم' : ($repair->delivery_status === 'rejected' ? 'الجهاز مرفوض - استرجاع المبلغ' : 'لم يتم التسليم') }}
+                    </span>
+                </div>
             </div>
 
             @if($repair->total - $repair->payments->sum('amount') > 0)
@@ -169,7 +177,7 @@
                     }
                 </style>
                 <div class="section">
-                    
+
                     <p><strong>نوع الجهاز:</strong> ${repair.device_type}</p>
                     <p><strong>وصف العطل:</strong> ${repair.problem_description}</p>
                     <p><strong>قطع الغيار:</strong></p>
@@ -196,7 +204,7 @@
                                 <p>لا توجد قطع غيار مرفقة.</p>
                             @endif
 
-                    
+
                 </div>
 
                 <hr>
@@ -213,7 +221,7 @@
                 <hr>
 
                 ${store.invoice_footer ? `<div class="footer">${store.invoice_footer} </br>تصميم وبرمجة ستوب جروب للبرمجيات 01030889618</div>` : ''}
-                
+
             </div>
         `;
 

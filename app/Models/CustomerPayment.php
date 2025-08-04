@@ -14,7 +14,7 @@ class CustomerPayment extends Model
         'repair_id',
         'sale_id',
         'payment_date', // ✅ أضفناه
-        
+
     ];
 
     public function customer(): BelongsTo
@@ -30,5 +30,10 @@ class CustomerPayment extends Model
     public function sale(): BelongsTo
     {
         return $this->belongsTo(Sale::class); // ✅ العلاقة بين الدفع والفاتورة
+    }
+
+    public function payments()
+    {
+        return $this->hasMany(CustomerPayment::class, 'repair_id');
     }
 }

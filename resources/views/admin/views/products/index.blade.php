@@ -90,6 +90,12 @@
                     </thead>
                     <tbody>
                         @foreach ($products as $product)
+                            @php
+                                $currentBranchId = session('current_branch_id');
+                                $branchData = $product->branches->firstWhere('id', $currentBranchId);
+                                $stock = $branchData && $branchData->pivot ? $branchData->pivot->stock : $product->stock;
+                                $salePrice = $product->getFinalPriceForBranch($currentBranchId);
+                            @endphp
                             <tr>
                                 <td><input type="checkbox" class="product-checkbox" name="selected_products[]" value="{{ $product->id }}"></td>
                                 <td>
@@ -103,11 +109,11 @@
                                 </td>
                                 <td>{{ $product->barcode ?? '-' }}</td>
                                 <td>{{ $product->category->name ?? '-' }}</td>
-                                <td>{{ $product->name }}</td>
+                                <td>{{ \Illuminate\Support\Str::words($product->name, 5, '...') }}</td>
                                 <td>{{ $product->brand->name ?? '-' }}</td>
                                 <td>{{ number_format($product->purchase_price, 2) }} ج.م</td>
-                                <td>{{ number_format($product->final_price, 2) }} ج.م</td>
-                                <td>{{ $product->stock }}</td>
+                                <td>{{ number_format($salePrice, 2) }} ج.م</td>
+                                <td>{{ $stock }}</td>
                                 <td>
                                     <div class="btn-group">
                                         <button type="button" class="btn btn-sm btn-primary dropdown-toggle"
@@ -133,6 +139,20 @@
             </div>
         </form>
         @endif
+
+        <!-- زر تحميل التمبلت وزر الاستيراد بجانب بعض -->
+        <div class="d-flex gap-2 mb-3">
+            <a href="{{ asset('templates/products_template.xlsx') }}" class="btn btn-info">
+                <i class="fas fa-download"></i> تحميل تمبلت المنتجات (Excel)
+            </a>
+            <form action="{{ route('admin.products.import') }}" method="POST" enctype="multipart/form-data" class="d-flex align-items-center">
+                @csrf
+                <input type="file" name="products_file" accept=".xlsx,.xls" class="form-control form-control-sm me-2" required style="max-width: 220px;">
+                <button type="submit" class="btn btn-success">
+                    <i class="fas fa-upload"></i> استيراد منتجات (Excel)
+                </button>
+            </form>
+        </div>
     </div>
 </div>
 

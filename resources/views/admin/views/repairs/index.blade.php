@@ -86,6 +86,13 @@
                                                 <i class="fas fa-exchange-alt me-2"></i> تغيير حالة التسليم
                                             </button>
                                         @endif
+                                        <form action="{{ route('admin.repairs.destroy', $repair->id) }}" method="POST" onsubmit="return confirm('هل أنت متأكد من حذف هذه الفاتورة؟');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button type="submit" class="dropdown-item text-danger">
+                                                <i class="fas fa-trash-alt me-2"></i> حذف
+                                            </button>
+                                        </form>
                                     </div>
                                 </div>
                             </td>

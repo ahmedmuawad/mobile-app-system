@@ -77,4 +77,22 @@ class BranchController extends Controller
 
         return redirect()->route('admin.branches.index')->with('success', 'تم حذف الفرع بنجاح');
     }
+
+    // ✅ تغيير الفرع الحالي أو اختيار "كل الفروع"
+    public function changeBranch($id)
+    {
+        $user = auth()->user();
+
+        // في حالة "كل الفروع"
+        if ($id === 'all') {
+            session()->forget('current_branch_id');
+        }
+        // التحقق من صلاحية المستخدم على الفرع المحدد
+        elseif ($user->branches()->where('branch_id', $id)->exists()) {
+            session(['current_branch_id' => $id]);
+        }
+
+        return redirect()->back();
+    }
+
 }

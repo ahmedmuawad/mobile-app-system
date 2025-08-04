@@ -19,10 +19,17 @@
     @endif
 
     <div class="card">
-        <div class="card-header">
+        <div class="card-header d-flex justify-content-between align-items-center">
             <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> إضافة فاتورة جديدة
             </a>
+            <form id="bulk-delete-form" action="{{ route('admin.sales.bulkDelete') }}" method="POST" onsubmit="return confirm('هل أنت متأكد من حذف الفواتير المحددة؟');" class="d-inline">
+                @csrf
+                <!-- لا تكتب @method('DELETE') -->
+                <button type="submit" class="btn btn-danger" id="bulk-delete-btn" disabled>
+                    <i class="fas fa-trash-alt"></i> حذف المحدد
+                </button>
+            </form>
         </div>
 
         <div class="card-body">
@@ -30,6 +37,7 @@
                 <table id="sales-table" class="table table-bordered table-striped text-center">
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>#</th>
                             <th>العميل</th>
                             <th>اسم العميل (يدوي)</th>
@@ -43,6 +51,9 @@
                     <tbody>
                         @forelse($sales as $sale)
                             <tr>
+                                <td>
+                                    <input type="checkbox" class="sale-checkbox" value="{{ $sale->id }}">
+                                </td>
                                 <td>{{ $sale->id }}</td>
                                 <td>{{ $sale->customer?->name ?? '-' }}</td>
                                 <td>{{ $sale->customer_name ?? '-' }}</td>
@@ -109,12 +120,11 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="text-center">لا توجد مبيعات حتى الآن</td>
+                                <td colspan="9" class="text-center">لا توجد مبيعات حتى الآن</td>
                             </tr>
                         @endforelse
                     </tbody>
                 </table>
-
                 <div class="m-3">
                     {{ $sales->links() }}
                 </div>
@@ -134,7 +144,38 @@
             autoWidth: false,
             paging: true,
             searching: true,
-            ordering: false;
+            ordering: false
+        });
+
+        // تحديد الكل
+        $('#select-all').on('change', function() {
+            $('.sale-checkbox').prop('checked', this.checked).trigger('change');
+        });
+
+        // تفعيل زر الحذف الجماعي
+        $('.card-body').on('change', '.sale-checkbox', function() {
+            $('#bulk-delete-btn').prop('disabled', $('.sale-checkbox:checked').length === 0);
+        });
+
+        // عند الضغط على زر الحذف الجماعي، أرسل الـ IDs المختارة
+        $('#bulk-delete-form').on('submit', function(e) {
+            e.preventDefault();
+            let ids = [];
+            $('.sale-checkbox:checked').each(function() {
+                ids.push($(this).val());
+            });
+            if (ids.length === 0) return;
+            // احذف أي inputs sales_ids[] قديمة
+            $(this).find('input[name="sales_ids[]"]').remove();
+            // أضف الجديدة
+            ids.forEach(function(id) {
+                $('<input>').attr({
+                    type: 'hidden',
+                    name: 'sales_ids[]',
+                    value: id
+                }).appendTo('#bulk-delete-form');
+            });
+            this.submit();
         });
     });
 </script>

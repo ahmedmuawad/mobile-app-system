@@ -14,7 +14,7 @@
                 @method('PUT')
 
                 <div class="row">
-                    {{-- اختيار العميل --}}
+                    {{-- اختيار العميل -- }}
                     <div class="col-md-6 mb-3">
                         <label>اختر عميل مسجل (اختياري)</label>
                         <select name="customer_id" class="form-control select2">
@@ -68,15 +68,15 @@
                 </div>
 
                 {{-- Spare Parts --}}
-                @php 
-                    $selectedParts = $repair->spareParts ? $repair->spareParts->pluck('id')->toArray() : []; 
-                    $selectedQuantities = $repair->spareParts 
+                @php
+                    $selectedParts = $repair->spareParts ? $repair->spareParts->pluck('id')->toArray() : [];
+                    $selectedQuantities = $repair->spareParts
                         ? $repair->spareParts->pluck('pivot.quantity','id')
                             ->map(function($qty){ return $qty ?? 1; })  // ✅ لو null نخليها 1
-                            ->toArray() 
+                            ->toArray()
                         : [];
-                    $selectedCategoryId = ($repair->spareParts && $repair->spareParts->count() > 0) 
-                        ? $repair->spareParts->first()->category_id 
+                    $selectedCategoryId = ($repair->spareParts && $repair->spareParts->count() > 0)
+                        ? $repair->spareParts->first()->category_id
                         : null;
                 @endphp
 

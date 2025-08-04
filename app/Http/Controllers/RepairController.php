@@ -10,6 +10,7 @@ use App\Models\Repair;
 use App\Models\Setting;
 use App\Models\CustomerPayment;
 use App\Models\Expense;
+use App\Models\Branch;
 
 class RepairController extends Controller
 {
@@ -23,8 +24,9 @@ class RepairController extends Controller
         {
             $customers = Customer::all();
             $categories = Category::all();
-            $products = Product::all(); // تم إضافة هذا السطر لإحضار قائمة المنتجات
-            return view('admin.views.repairs.create', compact('customers', 'categories', 'products'));
+            $products = Product::all();
+            $branches = Branch::all(); // أضف هذا السطر
+            return view('admin.views.repairs.create', compact('customers', 'categories', 'products', 'branches'));
         }
 
 public function store(Request $request)
@@ -40,6 +42,7 @@ public function store(Request $request)
         'status' => 'required|in:جاري,تم الإصلاح,لم يتم الإصلاح',
         'discount' => 'nullable|numeric|min:0',
         'paid' => 'nullable|numeric|min:0',
+        'branch_id' => 'required|exists:branches,id',
     ]);
 
     // حساب أسعار قطع الغيار المحددة
@@ -74,6 +77,7 @@ public function store(Request $request)
         'paid' => $paid,
         'remaining' => $total - $paid,
         'delivery_status' => 'not_delivered',
+        'branch_id' => $request->branch_id,
     ]);
 
     // إضافة قطع الغيار مع الكميات إلى جدول الربط
@@ -81,6 +85,11 @@ public function store(Request $request)
         foreach ($request->spare_part_id as $index => $sparePartId) {
             $quantity = $request->quantities[$sparePartId] ?? 1;
             $repair->spareParts()->attach($sparePartId, ['quantity' => $quantity]);
+            // خصم الكمية من المخزون
+            $product = Product::find($sparePartId);
+            if ($product) {
+                $product->decrement('stock', $quantity);
+            }
         }
     }
 
@@ -103,59 +112,77 @@ public function store(Request $request)
             $customers  = Customer::all();
             $categories = Category::all();
             $spareParts = Product::all();
+            $branches = Branch::all();
 
-            return view('admin.views.repairs.edit', compact('repair', 'customers', 'categories', 'spareParts'));
+            return view('admin.views.repairs.edit', compact('repair', 'customers', 'categories', 'spareParts', 'branches'));
         }
 
     public function update(Request $request, $id)
-        {
-            $request->validate([
-                'customer_id'         => 'nullable|exists:customers,id',
-                'customer_name'       => 'nullable|string|max:255',
-                'device_type'         => 'required|string|max:255',
-                'problem_description' => 'required|string',
-                'spare_part_id'       => 'nullable|exists:products,id',
-                'repair_cost'         => 'required|numeric|min:0',
-                'status'              => 'required|in:جاري,تم الإصلاح,لم يتم الإصلاح',
-                'discount'            => 'nullable|numeric|min:0',
-                'paid'                => 'nullable|numeric|min:0',
-            ]);
+    {
+        $request->validate([
+            'customer_id'         => 'nullable|exists:customers,id',
+            'customer_name'       => 'nullable|string|max:255',
+            'device_type'         => 'required|string|max:255',
+            'problem_description' => 'required|string',
+            'spare_part_id'       => 'nullable|exists:products,id',
+            'repair_cost'         => 'required|numeric|min:0',
+            'status'              => 'required|in:جاري,تم الإصلاح,لم يتم الإصلاح',
+            'discount'            => 'nullable|numeric|min:0',
+            'paid'                => 'nullable|numeric|min:0',
+            'branch_id'           => 'required|exists:branches,id',
+        ]);
 
-            $repair = Repair::findOrFail($id);
+        $repair = Repair::findOrFail($id);
 
-            $sparePartPrice = 0;
-            if ($request->spare_part_id) {
-                $spareParts = Product::whereIn('id', $request->spare_part_id)->get();
-                foreach ($spareParts as $sparePart) {
-                    $sparePartPrice += $sparePart->sale_price;  // إضافة أسعار القطع
+        // 1. إعادة الكميات القديمة للمخزون
+        foreach ($repair->spareParts as $oldPart) {
+            $product = Product::find($oldPart->id);
+            if ($product) {
+                $product->increment('stock', $oldPart->pivot->quantity);
+            }
+        }
+        // 2. حذف الربط القديم
+        $repair->spareParts()->detach();
+
+        // 3. حساب إجمالي قطع الغيار الجديد وضبط الربط وخصم الاستوك
+        $sparePartPrice = 0;
+        if ($request->spare_part_id) {
+            foreach ($request->spare_part_id as $sparePartId) {
+                $quantity = $request->quantities[$sparePartId] ?? 1;
+                $product = Product::find($sparePartId);
+                if ($product) {
+                    $sparePartPrice += $product->sale_price * $quantity;
+                    $repair->spareParts()->attach($sparePartId, ['quantity' => $quantity]);
+                    $product->decrement('stock', $quantity);
                 }
             }
-
-
-            // حساب الإجمالي بناءً على تكلفة المصنعية، وقطع الغيار، والخصم
-            $total = $sparePartPrice + $request->repair_cost - ($request->discount ?? 0);
-            $total = max($total, 0);
-            $paid = $request->paid ?? 0;
-
-            if ($paid > $total) {
-                return back()->with('error', '❌ المبلغ المدفوع يتجاوز إجمالي الفاتورة.')->withInput();
-            }
-
-            // تحديث الفاتورة
-            $repair->customer_id         = $request->customer_id;
-            $repair->customer_name       = $request->customer_name;
-            $repair->device_type         = $request->device_type;
-            $repair->problem_description = $request->problem_description;
-            $repair->repair_cost         = $request->repair_cost;
-            $repair->discount            = $request->discount ?? 0;
-            $repair->total               = $total;
-            $repair->status              = $request->status;
-            $repair->paid                = $paid;
-            $repair->remaining           = $total - $paid;
-            $repair->save();
-
-            return redirect()->route('admin.repairs.index')->with('success', '✅ تم تحديث الفاتورة بنجاح.');
         }
+
+        // 4. حساب الإجمالي
+        $total = $sparePartPrice + $request->repair_cost - ($request->discount ?? 0);
+        $total = max($total, 0);
+        $paid = $request->paid ?? 0;
+
+        if ($paid > $total) {
+            return back()->with('error', '❌ المبلغ المدفوع يتجاوز إجمالي الفاتورة.')->withInput();
+        }
+
+        // 5. تحديث بيانات الفاتورة
+        $repair->customer_id         = $request->customer_id;
+        $repair->customer_name       = $request->customer_name;
+        $repair->device_type         = $request->device_type;
+        $repair->problem_description = $request->problem_description;
+        $repair->repair_cost         = $request->repair_cost;
+        $repair->discount            = $request->discount ?? 0;
+        $repair->total               = $total;
+        $repair->status              = $request->status;
+        $repair->paid                = $paid;
+        $repair->remaining           = $total - $paid;
+        $repair->branch_id           = $request->branch_id;
+        $repair->save();
+
+        return redirect()->route('admin.repairs.index')->with('success', '✅ تم تحديث الفاتورة بنجاح.');
+    }
 
     public function destroy($id)
         {
@@ -194,59 +221,103 @@ public function store(Request $request)
         {
             $request->validate([
                 'repair_id'       => 'required|exists:repairs,id',
-                'delivery_status' => 'required|in:delivered,not_delivered,rejected',
+                'delivery_status' => 'required|in:not_delivered,delivered,rejected',
                 'paid_amount'     => 'nullable|numeric|min:0',
             ]);
 
-            $repair = Repair::findOrFail($request->repair_id);
+            $repair = Repair::with('payments')->findOrFail($request->repair_id);
 
-            if ($repair->delivery_status === $request->delivery_status) {
-                return back()->with('info', 'ℹ️ لم يتم تغيير حالة التسليم.');
+            // إذا تم إدخال دفعة جديدة
+            if ($request->filled('paid_amount') && $request->paid_amount > 0) {
+                // لا تتجاوز الدفعة المتبقي
+                $remaining = $repair->total - $repair->payments->sum('amount');
+                $amount = min($request->paid_amount, $remaining);
+
+                // سجل الدفعة
+                CustomerPayment::create([
+                    'repair_id'    => $repair->id,
+                    'amount'       => $amount,
+                    'payment_date' => now(),
+                ]);
+
+                // حدث paid و remaining
+                $newPaid = $repair->payments()->sum('amount') + $amount;
+                $repair->paid = $newPaid;
+                $repair->remaining = max($repair->total - $newPaid, 0);
             }
 
             // تحديث حالة التسليم
             $repair->delivery_status = $request->delivery_status;
-
-            // تغيير حالة الصيانة بناءً على حالة التسليم
-            if ($request->delivery_status === 'not_delivered') {
-                $repair->status = 'جاري';  // الفاتورة جديدة
-            } elseif ($request->delivery_status === 'delivered') {
-                $repair->status = 'تم الإصلاح';  // تم استلام الجهاز
-            } elseif ($request->delivery_status === 'rejected') {
-                $repair->status = 'لم يتم الإصلاح';  // تم رفض الجهاز
-                $repair->rejectAndRefund(); // استرجاع المبلغ إذا تم الرفض
-            }
-
-            // إذا تم دفع مبلغ جديد
-            if ($request->paid_amount && $request->paid_amount > 0) {
-                CustomerPayment::create([
-                    'repair_id'    => $repair->id,
-                    'amount'       => $request->paid_amount,
-                    'payment_date' => now(),
-                ]);
-
-                $repair->paid += $request->paid_amount;
-                $repair->remaining = max($repair->total - $repair->paid, 0);
-            }
-
             $repair->save();
 
-            return redirect()->route('admin.repairs.index')->with('success', '✅ تم تحديث حالة التسليم بنجاح.');
+            if ($request->delivery_status === 'delivered') {
+                $repair->status = 'تم الإصلاح';
+            } elseif ($request->delivery_status === 'rejected') {
+                $repair->status = 'لم يتم الإصلاح';
+
+                // سجل مصروف استرجاع المبلغ
+                $paidAmount = $repair->paid;
+                if ($paidAmount > 0) {
+                    Expense::create([
+                        'name'             => 'استرجاع مبلغ',
+                        'amount'           => $paidAmount,
+                        'description'      => 'استرجاع مبلغ للعميل بسبب رفض الجهاز. رقم الفاتورة: ' . $repair->id,
+                        'expense_date'     => now(), // أضف هذا السطر
+                        'expensable_id'    => $repair->id,
+                        'expensable_type'  => Repair::class,
+                    ]);
+                }
+
+                // تصفير المدفوع والمتبقي
+                $repair->paid = 0;
+                $repair->remaining = 0;
+                $repair->save();
+            }
+
+            return redirect()->route('admin.repairs.index')->with('success', 'تم تحديث حالة التسليم بنجاح.');
         }
 
     public function rejectAndRefund()
         {
             $paidAmount = $this->paid;
             $this->paid = 0;
-            $this->remaining = $this->total;
+            $this->remaining = 0;
+            $this->save();
 
             Expense::create([
                 'name' => 'استرجاع مبلغ',
                 'amount' => $paidAmount,
                 'description' => 'استرجاع مبلغ للعميل بسبب رفض الجهاز. رقم الفاتورة: ' . $repair->id,
+                'expense_date' => now(),
                 'expensable_id' => $this->id,
                 'expensable_type' => Repair::class,
             ]);
         }
+public function storePayment(Request $request, $repairId)
+{
+    $repair = Repair::with('payments')->findOrFail($repairId);
 
+    $paidAmount = $repair->payments->sum('amount');
+    $remaining = $repair->total - $paidAmount;
+
+    $request->validate([
+        'amount' => "required|numeric|min:0.01|max:$remaining",
+    ]);
+
+    // سجل الدفعة
+    CustomerPayment::create([
+        'repair_id'    => $repair->id,
+        'amount'       => $request->amount,
+        'payment_date' => now(),
+    ]);
+
+    // تحديث paid و remaining في repair بناءً على مجموع الدفعات
+    $newPaid = $repair->payments()->sum('amount') + $request->amount;
+    $repair->paid = $newPaid;
+    $repair->remaining = max($repair->total - $newPaid, 0);
+    $repair->save();
+
+    return redirect()->route('admin.repairs.payments.create', $repair->id)
+        ->with('success', 'تم تسجيل الدفعة بنجاح.');
+}
 }

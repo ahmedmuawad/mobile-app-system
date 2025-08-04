@@ -58,4 +58,31 @@ class Product extends Model
         $taxRate = $this->tax_percentage ?? 0;
         return $this->sale_price + ($this->sale_price * ($taxRate / 100));
     }
+    public function getFinalPriceForBranch($branchId = null)
+    {
+        // لو مفيش فرع محدد، استخدم السعر العام
+        if (!$branchId) {
+            return $this->final_price;
+        }
+
+        // تحميل بيانات الفرع المحدد من العلاقة المحملة مسبقًا
+        $branch = $this->branches->firstWhere('id', $branchId);
+
+        if ($branch && $branch->pivot) {
+            $price = $branch->pivot->price;
+            $isTaxIncluded = $branch->pivot->is_tax_included;
+            $taxPercentage = $branch->pivot->tax_percentage ?? 0;
+
+            if ($isTaxIncluded) {
+                return $price;
+            } else {
+                return $price + ($price * ($taxPercentage / 100));
+            }
+        }
+
+        // fallback في حالة مفيش بيانات pivot
+        return $this->final_price;
+    }
+
+
 }

@@ -13,16 +13,17 @@ class DashboardController extends Controller
 {
     public function index()
     {
+
         $today = Carbon::today();
         $weekAgo = Carbon::now()->subDays(6)->startOfDay();
         $monthStart = Carbon::now()->startOfMonth();
 
         // إحصائيات اليوم
-        $today_sales     = Sale::whereDate('created_at', $today)->sum('total');
+        $today_sales     = Sale::whereDate('created_at', $today)->sum('total') + Repair::whereDate('created_at', $today)->sum('total');
         $today_repairs   = Repair::whereDate('created_at', $today)->sum('total');
         $today_expenses  = Expense::whereDate('expense_date', $today)->sum('amount');
         $today_purchases = Purchase::whereDate('created_at', $today)->sum('total_amount');
-        $today_profit    = $today_sales + $today_repairs - $today_expenses;
+        $today_sales_profit = Sale::whereDate('created_at', $today)->sum('profit');
 
         // حساب أرباح المنتجات في الصيانة (اليوم)
         $today_repair_product_profit = Repair::whereDate('created_at', $today)
@@ -30,7 +31,6 @@ class DashboardController extends Controller
             ->sum(function($repair) {
                 $product_profit = 0;
                 foreach ($repair->spareParts as $sparePart) {
-                    // حساب الربح من المنتجات (سعر البيع - سعر الشراء) * الكمية
                     $product_profit += ($sparePart->sale_price - $sparePart->purchase_price) * $sparePart->pivot->quantity;
                 }
                 return $product_profit;
@@ -39,6 +39,9 @@ class DashboardController extends Controller
         // حساب أرباح المصنعية (اليوم)
         $today_repair_labor_profit = Repair::whereDate('created_at', $today)
             ->sum('repair_cost'); // ربح المصنعية فقط
+
+        // الآن فقط احسب الربح الكلي لليوم
+        $today_profit = $today_sales_profit + $today_repair_product_profit + $today_repair_labor_profit;
 
         // آخر 7 أيام (للرسم البياني)
         $last_7_days = collect();
@@ -54,27 +57,32 @@ class DashboardController extends Controller
         }
 
         // إحصائيات الشهر
-        $month_sales     = Sale::whereBetween('created_at', [$monthStart, now()])->sum('total');
+        $month_sales = Sale::whereBetween('created_at', [$monthStart, now()])->sum('total')
+            + Repair::whereBetween('created_at', [$monthStart, now()])->sum('total');
         $month_repairs   = Repair::whereBetween('created_at', [$monthStart, now()])->sum('total');
         $month_expenses  = Expense::whereBetween('expense_date', [$monthStart, now()])->sum('amount');
         $month_purchases = Purchase::whereBetween('created_at', [$monthStart, now()])->sum('total_amount');
-        $month_profit    = $month_sales + $month_repairs - $month_expenses;
 
-        // حساب أرباح المنتجات في الصيانة (الشهر)
+        // أرباح المنتجات في الصيانة (الشهر)
         $month_repair_product_profit = Repair::whereBetween('created_at', [$monthStart, now()])
             ->get()
             ->sum(function($repair) {
                 $product_profit = 0;
                 foreach ($repair->spareParts as $sparePart) {
-                    // حساب الربح من المنتجات (سعر البيع - سعر الشراء) * الكمية
                     $product_profit += ($sparePart->sale_price - $sparePart->purchase_price) * $sparePart->pivot->quantity;
                 }
                 return $product_profit;
             });
 
-        // حساب أرباح المصنعية (الشهر)
+        // أرباح المصنعية (الشهر)
         $month_repair_labor_profit = Repair::whereBetween('created_at', [$monthStart, now()])
-            ->sum('repair_cost'); // ربح المصنعية فقط
+            ->sum('repair_cost');
+
+        // أرباح مبيعات الشهر
+        $month_sales_profit = Sale::whereBetween('created_at', [$monthStart, now()])->sum('profit');
+
+        // الربح الحقيقي للشهر
+        $month_profit    = $month_sales_profit + $month_repair_product_profit + $month_repair_labor_profit;
 
         return view('home', compact(
             'today_sales', 'today_expenses', 'today_repairs', 'today_purchases', 'today_profit',
