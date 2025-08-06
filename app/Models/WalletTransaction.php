@@ -11,6 +11,7 @@ class WalletTransaction extends Model
     use HasFactory;
 
     protected $fillable = [
+        'branch_id',
         'wallet_id',
         'type',
         'amount',

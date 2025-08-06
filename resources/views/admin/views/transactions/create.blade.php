@@ -17,6 +17,11 @@
         <form method="POST" action="{{ route('admin.wallet_transactions.store') }}">
             @csrf
             <div class="card-body">
+                @if(session()->has('current_branch_name'))
+                    <div class="alert alert-info">
+                        الفرع الحالي: {{ session('current_branch_name') }}
+                    </div>
+                @endif
                 <div class="form-group">
                     <label for="wallet_id">المحفظة</label>
                     <select name="wallet_id" class="form-control" required>

@@ -107,6 +107,7 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // المحافظ
     Route::resource('wallets', WalletController::class);
+    Route::post('wallets/deposit', [WalletController::class, 'storeDeposit'])->name('wallets.deposit');
 
     // المعاملات
     Route::resource('wallet_transactions', WalletTransactionController::class);

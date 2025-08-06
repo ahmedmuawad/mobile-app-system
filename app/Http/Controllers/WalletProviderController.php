@@ -43,9 +43,11 @@ class WalletProviderController extends Controller
     public function update(Request $request, WalletProvider $walletProvider)
     {
         $data = $request->validate([
-            'name' => 'required|string|max:255',
-            'daily_limit' => 'required|numeric',
-            'monthly_limit' => 'required|numeric',
+        'name' => 'required|string|max:255',
+        'daily_send_limit' => 'required|numeric|min:0',
+        'daily_receive_limit' => 'required|numeric|min:0',
+        'daily_bill_limit' => 'required|numeric|min:0',
+        'monthly_limit' => 'required|numeric|min:0',
         ]);
 
         $walletProvider->update($data);

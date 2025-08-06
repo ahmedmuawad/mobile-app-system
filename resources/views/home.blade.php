@@ -32,6 +32,26 @@
             <i class="fas fa-layer-group position-absolute text-warning-50" style="top:10px; right:10px; font-size: 1.5rem; opacity: 0.1;"></i>
         </div>
     </div>
+    <div class="row mt-4">
+    <div class="col-12 mb-2">
+        <h5>أرصدة مزودي المحافظ</h5>
+    </div>
+
+    @foreach ($wallet_providers as $provider)
+        <div class="col-md-3 col-sm-6 mb-3">
+            <div class="small-box {{ $provider->balance >= 0 ? 'bg-success' : 'bg-danger' }}">
+                <div class="inner">
+                    <h4>{{ number_format($provider->balance, 2) }} جنيه</h4>
+                    <p>{{ $provider->name }}</p>
+                </div>
+                <div class="icon">
+                    <i class="fas fa-wallet"></i>
+                </div>
+            </div>
+        </div>
+    @endforeach
+</div>
+
 </div>
 
     <div class="row">
@@ -56,6 +76,11 @@
                 ['label' => 'مشتريات اليوم', 'value' => $today_purchases, 'color' => 'warning', 'icon' => 'fas fa-truck'],
                 ['label' => 'أرباح اليوم', 'value' => $today_profit, 'color' => 'secondary', 'icon' => 'fas fa-chart-line'],
                 ['label' => 'أرباح مبيعات اليوم', 'value' => $today_sales_product_profit + $today_repair_product_profit, 'color' => 'info', 'icon' => 'fas fa-money-bill'],
+                // المحافظ
+                ['label' => 'تحويلات مرسلة اليوم', 'value' => $today_wallet_send_total, 'color' => 'dark', 'icon' => 'fas fa-paper-plane'],
+                ['label' => 'تحويلات مستلمة اليوم', 'value' => $today_wallet_receive_total, 'color' => 'info', 'icon' => 'fas fa-inbox'],
+                ['label' => 'عمولات التحويلات اليوم', 'value' => $today_wallet_commission, 'color' => 'success', 'icon' => 'fas fa-percentage'],
+        ['label' => 'صافي التحويلات اليوم', 'value' => $today_wallet_receive_total - $today_wallet_send_total, 'color' => ($today_wallet_receive_total - $today_wallet_send_total) >= 0 ? 'success' : 'danger', 'icon' => 'fas fa-exchange-alt'],
 
             ];
         @endphp

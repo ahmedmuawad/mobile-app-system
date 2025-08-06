@@ -1,6 +1,14 @@
 @extends('layouts.app')
 @section('title', 'الحركات المالية')
+@push('styles')
+<style>
+    .dataTables_wrapper .dt-buttons {
+        margin-bottom: 10px;
+    }
+</style>
 
+
+@endpush
 @section('content')
 <div class="container-fluid">
     <section class="content-header">
@@ -25,23 +33,23 @@
                         {{ $provider->name }}<br><small>{{ $wallet->number }}</small>
                     </div>
                     <div class="card-body p-2 text-right">
-                        <p class="mb-1">📤 إرسال (يومي): 
+                        <p class="mb-1">📤 إرسال (يومي):
                             <strong class="{{ $provider->getRemainingDailyByType('send') < 0 ? 'text-danger' : '' }}">
                                 {{ number_format(max($provider->getRemainingDailyByType('send'), 0), 2) }} ج.م
                             </strong>
                         </p>
-                        <p class="mb-1">📥 استلام (يومي): 
+                        <p class="mb-1">📥 استلام (يومي):
                             <strong class="{{ $provider->getRemainingDailyByType('receive') < 0 ? 'text-danger' : '' }}">
                                 {{ number_format(max($provider->getRemainingDailyByType('receive'), 0), 2) }} ج.م
                             </strong>
                         </p>
-                        <p class="mb-1">🧾 فواتير (يومي): 
+                        <p class="mb-1">🧾 فواتير (يومي):
                             <strong class="{{ $provider->getRemainingDailyByType('bill') < 0 ? 'text-danger' : '' }}">
                                 {{ number_format(max($provider->getRemainingDailyByType('bill'), 0), 2) }} ج.م
                             </strong>
                         </p>
                         <hr class="my-2">
-                        <p class="mb-0">📅 المتبقي الشهري: 
+                        <p class="mb-0">📅 المتبقي الشهري:
                             <strong class="{{ $provider->remaining_monthly < 0 ? 'text-danger' : '' }}">
                                 {{ number_format(max($provider->remaining_monthly, 0), 2) }} ج.م
                             </strong>
@@ -74,6 +82,7 @@
                             <th>العمولة</th>
                             <th>رقم التحويل إليه</th>
                             <th>ملاحظة</th>
+                            <th>الفرع</th>
                             <th style="width: 180px;">الإجراءات</th>
                         </tr>
                     </thead>
@@ -88,6 +97,8 @@
                                     استلام
                                 @elseif ($t->type == 'bill')
                                     فاتورة
+                                @elseif ($t->type == 'depositfromsafe')
+                                    ايداع من الخزينه
                                 @else
                                     {{ $t->type }}
                                 @endif
@@ -96,6 +107,8 @@
                             <td>{{ number_format($t->commission, 2) }} ج.م</td>
                             <td>{{ $t->target_number }}</td>
                             <td>{{ $t->note }}</td>
+                            <td>{{ $t->wallet->branch->name ?? '-' }}</td>
+
                             <td>
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
@@ -127,17 +140,32 @@
 @endsection
 
 @push('scripts')
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<script>
-    $(function () {
-        $('#transactions-table').DataTable({
-            language: { url: "{{ asset('assets/admin/js/ar.json') }}" },
-            responsive: true,
-            autoWidth: false,
-            paging: true,
-            searching: true,
-            ordering: true
-        });
-    });
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script></script>
+
+<Script>
+$('#transactions-table').DataTable({
+    language: { url: "{{ asset('assets/admin/js/ar.json') }}" },
+    responsive: true,
+    autoWidth: false,
+    paging: true,
+    searching: true,
+    ordering: true,
+    dom: 'Bfrtip',
+    buttons: [
+        {
+            extend: 'excelHtml5',
+            text: '📥 تصدير Excel',
+            exportOptions: {
+                columns: ':visible' // يصدر فقط الأعمدة الظاهرة
+            },
+            className: 'btn btn-success mb-2'
+        }
+    ]
+});
+
 </script>
+
 @endpush

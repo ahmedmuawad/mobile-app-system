@@ -23,6 +23,40 @@ public function index()
     $branch_id = session('current_branch_id');
     $today = today();
 
+    $wallet_providers = \App\Models\WalletProvider::with('walletTransactions')->get();
+
+foreach ($wallet_providers as $provider) {
+    $provider->balance = $provider->walletTransactions()
+    ->when($branch_id, fn($q) => $q->where('wallet_transactions.branch_id', $branch_id))
+
+        ->selectRaw("
+            SUM(CASE WHEN type = 'receive' THEN amount ELSE 0 END) +
+            SUM(CASE WHEN type = 'bill' THEN amount ELSE 0 END) -
+            SUM(CASE WHEN type = 'send' THEN amount ELSE 0 END) -
+            SUM(commission)
+        as balance")
+        ->value('balance') ?? 0;
+}
+
+    // تحويلات المحافظ اليومية
+$today_wallet_send_total = \App\Models\WalletTransaction::where('type', 'send')
+    ->whereDate('created_at', $today)
+    ->when($branch_id, fn($q) => $q->where('branch_id', $branch_id))
+    ->sum('amount');
+
+$today_wallet_receive_total = \App\Models\WalletTransaction::where('type', 'receive')
+    ->whereDate('created_at', $today)
+    ->when($branch_id, fn($q) => $q->where('branch_id', $branch_id))
+    ->sum('amount');
+
+$today_wallet_net = $today_wallet_receive_total - $today_wallet_send_total;
+
+// عمولة التحويلات اليومية
+$today_wallet_commission = \App\Models\WalletTransaction::whereDate('created_at', $today)
+    ->when($branch_id, fn($q) => $q->where('branch_id', $branch_id))
+    ->sum('commission');
+
+
     // مبيعات اليوم (إجمالي الفاتورة)
     $today_sales_total = $this->applyBranchFilter(Sale::query(), $branch_id)
         ->whereDate('created_at', $today)
@@ -113,7 +147,7 @@ public function index()
         ]);
     }
 // ✅ حساب كروت الدرج الجديدة
-$sales_drawer = $today_sales_total - $today_expenses - $today_purchases_total;
+$sales_drawer = $today_sales_total - $today_expenses - $today_purchases_total - $today_wallet_send_total;
 $repair_drawer = $today_repairs;
 $total_drawer = $sales_drawer + $repair_drawer;
 
@@ -138,6 +172,11 @@ return view('home', [
         'sales_drawer' => $sales_drawer,
     'repair_drawer' => $repair_drawer,
     'total_drawer' => $total_drawer,
+    'today_wallet_send_total' => $today_wallet_send_total,
+    'today_wallet_receive_total' => $today_wallet_receive_total,
+    'today_wallet_net' => $today_wallet_net,
+    'today_wallet_commission' => $today_wallet_commission,
+'wallet_providers' => $wallet_providers,
 
 
     // ✅ أضف هذا هنا صراحة

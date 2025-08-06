@@ -20,6 +20,10 @@
 
             <div class="card-body">
                 <div class="form-group">
+                    <label>الفرع</label>
+                    <input type="text" class="form-control" value="{{ $wallet->branch->name ?? '-' }}" readonly>
+                </div>
+                <div class="form-group">
                     <label for="number">رقم المحفظة</label>
                     <input type="text" name="number" class="form-control" value="{{ $wallet->number }}" required>
                 </div>

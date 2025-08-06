@@ -15,6 +15,7 @@ class Wallet extends Model
         'number',
         'wallet_provider_id',
         'owner_name',
+        'branch_id'
     ];
 
     public function provider(): BelongsTo
@@ -26,4 +27,21 @@ class Wallet extends Model
     {
         return $this->hasMany(WalletTransaction::class);
     }
+    // App\Models\Wallet.php
+
+public function branch(): BelongsTo
+{
+    return $this->belongsTo(Branch::class);
+}
+
+// لحساب الرصيد الحالي تلقائيًا
+public function getBalanceAttribute(): float
+{
+    $send = $this->transactions()->where('type', 'send')->sum('amount');
+    $receive = $this->transactions()->where('type', 'receive')->sum('amount');
+
+    return $receive - $send;
+}
+
+
 }

@@ -65,4 +65,16 @@ class WalletProvider extends Model
     {
         return max(0, $this->monthly_limit - $this->usedMonthlyAmount());
     }
+    public function walletTransactions()
+{
+    return $this->hasManyThrough(
+        \App\Models\WalletTransaction::class,
+        \App\Models\Wallet::class,
+        'wallet_provider_id', // مفتاح العلاقة في جدول wallets (الجدول الوسيط)
+        'wallet_id',          // المفتاح الأجنبي في جدول wallet_transactions
+        'id',                 // المفتاح المحلي في جدول wallet_providers
+        'id'                  // المفتاح المحلي في جدول wallets
+    );
+}
+
 }
