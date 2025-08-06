@@ -23,160 +23,72 @@
             <a href="{{ route('admin.sales.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> إضافة فاتورة جديدة
             </a>
-            <form id="bulk-delete-form" action="{{ route('admin.sales.bulkDelete') }}" method="POST" onsubmit="return confirm('هل أنت متأكد من حذف الفواتير المحددة؟');" class="d-inline">
+            {{-- <form id="bulk-delete-form" action="{{ route('admin.sales.bulkDelete') }}" method="POST" onsubmit="return confirm('هل أنت متأكد من حذف الفواتير المحددة؟');" class="d-inline">
                 @csrf
-                <!-- لا تكتب @method('DELETE') -->
-                <button type="submit" class="btn btn-danger" id="bulk-delete-btn" disabled>
-                    <i class="fas fa-trash-alt"></i> حذف المحدد
+                @method('DELETE')
+                <input type="hidden" name="sales_ids" id="bulk-delete-ids">
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-trash"></i> حذف المحدد
                 </button>
-            </form>
+            </form> --}}
         </div>
 
-        <div class="card-body">
-            <div class="card-body table-responsive p-0">
-                <table id="sales-table" class="table table-bordered table-striped text-center">
-                    <thead>
+        <div class="card-body table-responsive">
+            <table class="table table-bordered table-hover table-striped datatable">
+                <thead class="bg-dark text-light">
+                    <tr>
+                        {{-- <th><input type="checkbox" id="select-all"></th> --}}
+                        <th>الرقم</th>
+                        <th>العميل</th>
+                        <th>المبلغ الإجمالي</th>
+                        <th>المدفوع</th>
+                        <th>المتبقى</th>
+                        <th>التاريخ</th>
+                        <th>الفرع</th>
+                        <th>الإجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($sales as $sale)
                         <tr>
-                            <th><input type="checkbox" id="select-all"></th>
-                            <th>#</th>
-                            <th>العميل</th>
-                            <th>اسم العميل (يدوي)</th>
-                            <th>الإجمالي</th>
-                            <th>المدفوع</th>
-                            <th>المتبقي</th>
-                            <th>التاريخ</th>
-                            <th>الإجراءات</th>
+                            <td>{{ $sale->id }}</td>
+                            <td>{{ optional($sale->customer)->name ?? '-' }}</td>
+                            <td>{{ number_format($sale->total, 2) }}</td>
+                            <td>{{ number_format($sale->paid, 2) }}</td>
+                            <td>{{ number_format($sale->remaining, 2) }}</td>
+                            <td>{{ $sale->created_at->format('Y-m-d') }}</td>
+                            <td>{{ optional($sale->branch)->name ?? '-' }}</td>
+                            <td>
+                                <a href="{{ route('admin.sales.edit', $sale->id) }}" class="btn btn-sm btn-warning">تعديل</a>
+                                <a href="{{ route('admin.sales.show', $sale->id) }}" class="btn btn-sm btn-info">عرض</a>
+                                <form action="{{ route('admin.sales.destroy', $sale->id) }}" method="POST" style="display:inline;" onsubmit="return confirm('هل أنت متأكد من حذف هذه الفاتورة؟');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn btn-sm btn-danger">حذف</button>
+                                </form>
+                            </td>
                         </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($sales as $sale)
-                            <tr>
-                                <td>
-                                    <input type="checkbox" class="sale-checkbox" value="{{ $sale->id }}">
-                                </td>
-                                <td>{{ $sale->id }}</td>
-                                <td>{{ $sale->customer?->name ?? '-' }}</td>
-                                <td>{{ $sale->customer_name ?? '-' }}</td>
-                                <td>{{ number_format($sale->total, 2) }} جنيه</td>
-                                <td>{{ number_format($sale->paid, 2) }} جنيه</td>
-                                <td>{{ number_format($sale->remaining, 2) }} جنيه</td>
-                                <td>{{ $sale->created_at->format('Y-m-d') }}</td>
-                                <td>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            <i class="fas fa-ellipsis-v"></i> اختر إجراء
-                                        </button>
-                                        <div class="dropdown-menu dropdown-menu-right">
-                                            <a href="{{ route('admin.sales.show', $sale->id) }}" class="dropdown-item">
-                                                <i class="fas fa-eye text-info me-2"></i> عرض
-                                            </a>
-                                            <a href="{{ route('admin.sales.edit', $sale->id) }}" class="dropdown-item">
-                                                <i class="fas fa-edit text-warning me-2"></i> تعديل
-                                            </a>
-                                            <form action="{{ route('admin.sales.destroy', $sale->id) }}" method="POST" onsubmit="return confirm('هل أنت متأكد من حذف هذه الفاتورة؟');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="dropdown-item text-danger">
-                                                    <i class="fas fa-trash-alt me-2"></i> حذف
-                                                </button>
-                                            </form>
-
-                                            @if($sale->remaining > 0)
-                                            <button type="button" class="dropdown-item text-success" data-toggle="modal" data-target="#paymentModal{{ $sale->id }}">
-                                                <i class="fas fa-money-bill-wave me-2"></i> سداد
-                                            </button>
-                                            @endif
-                                        </div>
-                                    </div>
-
-                                    <!-- مودال سداد -->
-                                    <div class="modal fade" id="paymentModal{{ $sale->id }}" tabindex="-1" role="dialog" aria-labelledby="paymentModalLabel{{ $sale->id }}" aria-hidden="true">
-                                      <div class="modal-dialog" role="document">
-                                        <form action="{{ route('admin.sales.update', $sale->id) }}" method="POST">
-                                            @csrf
-                                            @method('PUT')
-                                            <div class="modal-content">
-                                              <div class="modal-header">
-                                                <h5 class="modal-title" id="paymentModalLabel{{ $sale->id }}">سداد دفعة</h5>
-                                                <button type="button" class="close" data-dismiss="modal" aria-label="إغلاق">
-                                                  <span aria-hidden="true">&times;</span>
-                                                </button>
-                                              </div>
-                                              <div class="modal-body">
-                                                  <div class="form-group">
-                                                      <label>المتبقي: {{ number_format($sale->remaining, 2) }} جنيه</label>
-                                                      <input type="number" name="new_payment" step="0.01" min="0" max="{{ $sale->remaining }}" class="form-control" required>
-                                                  </div>
-                                              </div>
-                                              <div class="modal-footer">
-                                                <button type="button" class="btn btn-secondary" data-dismiss="modal">إلغاء</button>
-                                                <button type="submit" class="btn btn-success">تأكيد السداد</button>
-                                              </div>
-                                            </div>
-                                        </form>
-                                      </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @empty
-                            <tr>
-                                <td colspan="9" class="text-center">لا توجد مبيعات حتى الآن</td>
-                            </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-                <div class="m-3">
-                    {{ $sales->links() }}
-                </div>
-            </div>
+                    @endforeach
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+
 @endsection
 
 @push('scripts')
-<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script>
-    $(function () {
-        $('#sales-table').DataTable({
-            language: { url: "{{ asset('assets/admin/js/ar.json') }}" },
-            responsive: true,
-            autoWidth: false,
-            paging: true,
-            searching: true,
-            ordering: false
-        });
+    // تحديد أو إلغاء تحديد الكل
+    document.getElementById('select-all').addEventListener('change', function () {
+        let checkboxes = document.querySelectorAll('input[name="selected_ids[]"]');
+        checkboxes.forEach(cb => cb.checked = this.checked);
+    });
 
-        // تحديد الكل
-        $('#select-all').on('change', function() {
-            $('.sale-checkbox').prop('checked', this.checked).trigger('change');
-        });
-
-        // تفعيل زر الحذف الجماعي
-        $('.card-body').on('change', '.sale-checkbox', function() {
-            $('#bulk-delete-btn').prop('disabled', $('.sale-checkbox:checked').length === 0);
-        });
-
-        // عند الضغط على زر الحذف الجماعي، أرسل الـ IDs المختارة
-        $('#bulk-delete-form').on('submit', function(e) {
-            e.preventDefault();
-            let ids = [];
-            $('.sale-checkbox:checked').each(function() {
-                ids.push($(this).val());
-            });
-            if (ids.length === 0) return;
-            // احذف أي inputs sales_ids[] قديمة
-            $(this).find('input[name="sales_ids[]"]').remove();
-            // أضف الجديدة
-            ids.forEach(function(id) {
-                $('<input>').attr({
-                    type: 'hidden',
-                    name: 'sales_ids[]',
-                    value: id
-                }).appendTo('#bulk-delete-form');
-            });
-            this.submit();
-        });
+    // تجهيز معرفات الفواتير المحددة للحذف
+    document.getElementById('bulk-delete-form').addEventListener('submit', function () {
+        let selected = Array.from(document.querySelectorAll('input[name="selected_ids[]"]:checked')).map(cb => cb.value);
+        document.getElementById('bulk-delete-ids').value = JSON.stringify(selected);
     });
 </script>
 @endpush

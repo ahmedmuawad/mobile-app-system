@@ -10,6 +10,8 @@ class Sale extends Model
     use HasFactory;
 
     protected $fillable = [
+        'company_id',
+        'branch_id',
         'customer_id',
         'customer_name',
         'total',
@@ -34,6 +36,18 @@ class Sale extends Model
     // ✅ علاقة الدفعات المرتبطة بالفاتورة
     public function customerPayments()
     {
-    return $this->hasMany(CustomerPayment::class);
+        return $this->hasMany(CustomerPayment::class);
+    }
+
+    // ✅ علاقة الشركة
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    // ✅ علاقة الفرع
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
     }
 }

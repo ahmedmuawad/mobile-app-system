@@ -1,6 +1,31 @@
 @extends('layouts.app')
 
 @section('title', 'إضافة فاتورة جديدة')
+@push('style')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .product-cell {
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .product-cell .select2-container {
+        width: 100% !important;
+    }
+
+    .product-cell .select2-selection {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .select2-results__option {
+        white-space: normal !important;
+    }
+</style>
+@endpush
 
 @section('content')
 <div class="container-fluid">
@@ -16,8 +41,11 @@
         </div>
     @endif
 
-    <form action="{{ route('admin.sales.store') }}" method="POST">
+    <form id="sale-form" method="POST">
         @csrf
+
+        @php $branch_id = session('current_branch_id'); @endphp
+        <input type="hidden" name="branch_id" value="{{ $branch_id }}">
 
         <div class="mb-3">
             <label for="customer_id" class="form-label">اختيار عميل مسجل</label>
@@ -34,18 +62,6 @@
             <input type="text" name="customer_name" id="customer_name" class="form-control">
         </div>
 
-        <div class="row mb-3">
-            <div class="col-md-6">
-                <label>الفرع <span class="text-danger">*</span></label>
-                <select name="branch_id" id="branch_id" class="form-control" required>
-                    <option value="">-- اختر فرع --</option>
-                    @foreach($branches as $branch)
-                        <option value="{{ $branch->id }}">{{ $branch->name }}</option>
-                    @endforeach
-                </select>
-            </div>
-        </div>
-
         <hr>
 
         <div class="row mb-3">
@@ -57,9 +73,12 @@
                 <label>فلترة حسب التصنيف</label>
                 <select id="category-filter" class="form-control">
                     <option value="">-- كل التصنيفات --</option>
-                    @php $categories = $products->pluck('category')->unique()->filter(); @endphp
-                    @foreach($categories as $cat)
-                        <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                    @php $categories = collect($branchProducts)->pluck('category_id')->unique()->filter(); @endphp
+                    @foreach($categories as $catId)
+                        @php $cat = \App\Models\Category::find($catId); @endphp
+                        @if($cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endif
                     @endforeach
                 </select>
             </div>
@@ -67,9 +86,12 @@
                 <label>فلترة حسب البراند</label>
                 <select id="brand-filter" class="form-control">
                     <option value="">-- كل البراندات --</option>
-                    @php $brands = $products->pluck('brand')->unique()->filter(); @endphp
-                    @foreach($brands as $brand)
-                        <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                    @php $brands = collect($branchProducts)->pluck('brand_id')->unique()->filter(); @endphp
+                    @foreach($brands as $brandId)
+                        @php $brand = \App\Models\Brand::find($brandId); @endphp
+                        @if($brand)
+                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                        @endif
                     @endforeach
                 </select>
             </div>
@@ -80,7 +102,7 @@
         <table class="table table-bordered" id="items-table">
             <thead>
                 <tr>
-                    <th>المنتج</th>
+                    <th width="30%">المنتج</th>
                     <th>الكمية</th>
                     <th>السعر قبل الضريبة</th>
                     <th>الضريبة المضافة</th>
@@ -97,7 +119,7 @@
 
         <div class="form-group">
             <label>الخصم (جنيه)</label>
-            <input type="number" step="0.01" name="discount" class="form-control" value="0">
+            <input type="number" step="0.01" name="discount" id="discount" class="form-control" value="0">
         </div>
 
         <div class="row mt-4">
@@ -127,207 +149,227 @@
         </div>
 
         <br>
-        <button type="submit" class="btn btn-primary">حفظ الفاتورة</button>
+        <button type="submit" class="btn btn-primary" id="save-btn">حفظ الفاتورة</button>
     </form>
 </div>
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    const branchProducts = @json($branchProducts);
-</script>
+$(document).ready(function() {
+    const products = @json($branchProducts);
 
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    const tbody = document.querySelector('#items-table tbody');
-
-    function getSelectedBranchId() {
-        return document.getElementById('branch_id').value;
+    function round(val) {
+        return Math.round(val * 100) / 100;
     }
 
-    function getProductOptions(branchId, selectedId = null) {
-        let options = '<option value="">-- اختر منتج --</option>';
-        if (branchProducts[branchId]) {
-            branchProducts[branchId].forEach(prod => {
-                options += `<option value="${prod.id}"
-                    data-price="${prod.price}"
-                    data-barcode="${prod.barcode}"
-                    data-category="${prod.category_id}"
-                    data-brand="${prod.brand_id}"
-                    data-tax-included="${prod.tax_included}"
-                    data-tax-percentage="${prod.tax_percentage}"
-                    data-stock="${prod.stock}"
-                    ${selectedId == prod.id ? 'selected' : ''}>
-                    ${prod.name} (متوفر: ${prod.stock})
-                </option>`;
-            });
+    function truncateName(name, wordLimit = 5) {
+        const words = name.trim().split(/\s+/);
+        if (words.length > wordLimit) {
+            return words.slice(0, wordLimit).join(' ') + ' ...';
         }
-        return options;
+        return name;
     }
 
-    function createRow(index = null) {
-        if (index === null) index = tbody.querySelectorAll('tr').length;
-        const branchId = getSelectedBranchId();
-        const row = document.createElement('tr');
-        row.innerHTML = `
-            <td>
-                <select name="items[${index}][product_id]" class="form-control product-select" data-index="${index}">
-                    ${getProductOptions(branchId)}
-                </select>
-            </td>
-            <td><input type="number" name="items[${index}][quantity]" class="form-control quantity-input" value="1" min="1" data-index="${index}"></td>
-            <td>
-                <input type="number" class="form-control base-price" readonly>
-                <input type="hidden" name="items[${index}][sale_price]" class="sale-price-hidden">
-            </td>
-            <td><input type="number" class="form-control tax-value" readonly></td>
-            <td><input type="number" class="form-control final-price" readonly></td>
-            <td><input type="text" class="form-control tax-type" readonly></td>
-            <td><input type="number" class="form-control item-total" readonly></td>
-            <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
-        `;
-        tbody.appendChild(row);
-    }
-
-    function updateProductSelects() {
-        const branchId = getSelectedBranchId();
-        tbody.querySelectorAll('tr').forEach((tr, i) => {
-            const select = tr.querySelector('.product-select');
-            const selected = select.value;
-            select.innerHTML = getProductOptions(branchId, selected);
-            // حدث باقي الحقول إذا تغير المنتج
-            const selectedOption = select.querySelector(`option[value="${selected}"]`);
-            if (selectedOption) {
-                fillProductData(tr, selectedOption);
-            }
+    function updateIndexes() {
+        $('#items-table tbody tr').each(function(i) {
+            $(this).find('[name]').each(function() {
+                $(this).attr('name', $(this).attr('name').replace(/items\[\d+\]/, `items[${i}]`));
+            });
         });
     }
-
-    function fillProductData(row, selectedOption) {
-    const base = parseFloat(selectedOption.getAttribute('data-price')) || 0;
-    const taxIncluded = selectedOption.getAttribute('data-tax-included') === '1';
-    const taxRate = parseFloat(selectedOption.getAttribute('data-tax-percentage')) || 0;
-
-    let tax = 0;
-    let taxType = 'شامل';
-    let basePrice = base;
-    let finalPrice = base;
-
-    if (!taxIncluded) {
-        tax = base * (taxRate / 100);
-        taxType = `غير شامل (${taxRate}%)`;
-        finalPrice = base + tax;
-    } else {
-        basePrice = base / (1 + taxRate / 100);
-        tax = base - basePrice;
-        finalPrice = base;
-    }
-
-    row.querySelector('.base-price').value = basePrice.toFixed(2);
-    row.querySelector('.sale-price-hidden').value = finalPrice.toFixed(2);
-    row.querySelector('.tax-value').value = tax.toFixed(2);
-    row.querySelector('.tax-type').value = taxType;
-
-    updateTotals();
-}
-
 
     function updateTotals() {
         let totalBefore = 0, totalTax = 0, totalAfter = 0;
 
-        tbody.querySelectorAll('tr').forEach((tr, i) => {
-            const quantity = parseFloat(tr.querySelector('.quantity-input')?.value) || 0;
-            const basePrice = parseFloat(tr.querySelector('.base-price')?.value) || 0;
-            const taxValue = parseFloat(tr.querySelector('.tax-value')?.value) || 0;
-            const finalPrice = basePrice + taxValue;
+        $('#items-table tbody tr').each(function() {
+            const qty = parseFloat($(this).find('.quantity-input').val()) || 0;
+            const base = parseFloat($(this).find('.base-price').val()) || 0;
+            const tax = parseFloat($(this).find('.tax-value').val()) || 0;
+            const final = parseFloat($(this).find('.final-price').val()) || 0;
 
-            totalBefore += basePrice * quantity;
-            totalTax += taxValue * quantity;
-            totalAfter += finalPrice * quantity;
+            totalBefore += base * qty;
+            totalTax += tax * qty;
+            totalAfter += final * qty;
 
-            tr.querySelector('.final-price').value = finalPrice.toFixed(2);
-            tr.querySelector('.item-total').value = (finalPrice * quantity).toFixed(2);
+            $(this).find('.item-total').val(round(final * qty));
         });
 
-        document.getElementById('total-before-tax').value = totalBefore.toFixed(2);
-        document.getElementById('total-tax').value = totalTax.toFixed(2);
-        document.getElementById('total-after-tax').value = totalAfter.toFixed(2);
+        $('#total-before-tax').val(round(totalBefore));
+        $('#total-tax').val(round(totalTax));
+        $('#total-after-tax').val(round(totalAfter));
 
-        const discount = parseFloat(document.querySelector('[name="discount"]').value) || 0;
-        const paid = parseFloat(document.getElementById('initial-payment').value) || 0;
+        const discount = parseFloat($('#discount').val()) || 0;
+        const paid = parseFloat($('#initial-payment').val()) || 0;
         const remaining = Math.max(totalAfter - discount - paid, 0);
-
-        document.getElementById('remaining-amount').value = remaining.toFixed(2);
+        $('#remaining-amount').val(round(remaining));
     }
 
-    tbody.addEventListener('change', function (e) {
-        const row = e.target.closest('tr');
-        if (e.target.classList.contains('product-select')) {
-            const selectedOption = e.target.selectedOptions[0];
-            fillProductData(row, selectedOption);
-        }
-        if (e.target.classList.contains('quantity-input')) {
-            updateTotals();
-        }
-    });
+    function applyFilters() {
+        const cat = $('#category-filter').val();
+        const brand = $('#brand-filter').val();
 
-    document.getElementById('add-row').addEventListener('click', function () {
+        $('.product-select').each(function() {
+            const select = $(this);
+            const currentVal = select.val();
+            const currentProduct = products.find(p => p.id == currentVal);
+
+            select.empty().append(`<option value="">-- اختر منتج --</option>`);
+
+            if (currentProduct) {
+                select.append(`<option value="${currentProduct.id}"
+                    data-price="${currentProduct.price}"
+                    data-barcode="${currentProduct.barcode}"
+                    data-category="${currentProduct.category_id}"
+                    data-brand="${currentProduct.brand_id}"
+                    data-tax-included="${currentProduct.tax_included}"
+                    data-tax-percentage="${currentProduct.tax_percentage}">
+                    ${truncateName(currentProduct.name)} (خارج الفلتر)
+                </option>`);
+            }
+
+            products.forEach(product => {
+                const matchCat = !cat || product.category_id == cat;
+                const matchBrand = !brand || product.brand_id == brand;
+
+                if (matchCat && matchBrand && product.id != currentVal) {
+                    select.append(`<option value="${product.id}"
+                        data-price="${product.price}"
+                        data-barcode="${product.barcode}"
+                        data-category="${product.category_id}"
+                        data-brand="${product.brand_id}"
+                        data-tax-included="${product.tax_included}"
+                        data-tax-percentage="${product.tax_percentage}">
+                        ${truncateName(product.name)}
+                    </option>`);
+                }
+            });
+
+            select.val(currentVal);
+            select.select2({ dir: "rtl", width: '100%' });
+        });
+    }
+
+    function fillProductData(row, selectedOption) {
+        const base = parseFloat(selectedOption.data('price')) || 0;
+        const taxIncluded = selectedOption.data('tax-included') == 1;
+        const taxRate = parseFloat(selectedOption.data('tax-percentage')) || 0;
+
+        let basePrice = base, tax = 0, finalPrice = base, taxType = 'شامل';
+
+        if (taxRate > 0) {
+            if (taxIncluded) {
+                basePrice = base / (1 + taxRate / 100);
+                tax = base - basePrice;
+                taxType = `شامل (${taxRate}%)`;
+            } else {
+                tax = base * (taxRate / 100);
+                finalPrice = base + tax;
+                taxType = `غير شامل (${taxRate}%)`;
+            }
+        } else {
+            taxType = 'بدون ضريبة';
+        }
+
+        row.find('.base-price').val(round(basePrice));
+        row.find('.sale-price-hidden').val(round(finalPrice));
+        row.find('.tax-value').val(round(tax));
+        row.find('.final-price').val(round(finalPrice));
+        row.find('.tax-type').val(taxType);
+        updateTotals();
+    }
+
+    function createRow() {
+        const index = $('#items-table tbody tr').length;
+        const row = $(`
+            <tr>
+                <td class="product-cell">
+                    <select name="items[${index}][product_id]" class="form-control product-select" data-index="${index}">
+                        <option value="">-- اختر منتج --</option>
+                    </select>
+                </td>
+                <td><input type="number" name="items[${index}][quantity]" class="form-control quantity-input" value="1" min="1"></td>
+                <td><input type="number" class="form-control base-price" readonly><input type="hidden" name="items[${index}][sale_price]" class="sale-price-hidden"></td>
+                <td><input type="number" class="form-control tax-value" readonly></td>
+                <td><input type="number" class="form-control final-price" readonly></td>
+                <td><input type="text" class="form-control tax-type" readonly></td>
+                <td><input type="number" class="form-control item-total" readonly></td>
+                <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
+            </tr>
+        `);
+
+        $('#items-table tbody').append(row);
+        row.find('.product-select').select2({ dir: "rtl", width: '100%' });
+        applyFilters();
+
+        setTimeout(() => {
+            row.find('.product-select').select2('open');
+        }, 100);
+    }
+
+    $('#add-row').click(function() {
         createRow();
     });
 
-    document.addEventListener('click', function (e) {
-        if (e.target.classList.contains('btn-remove-row')) {
-            e.target.closest('tr').remove();
-            updateTotals();
-        }
+    $(document).on('change', '.product-select', function() {
+        const selected = $(this).find('option:selected');
+        fillProductData($(this).closest('tr'), selected);
     });
 
-    document.querySelector('[name="discount"]').addEventListener('input', updateTotals);
-    document.querySelector('#initial-payment').addEventListener('input', updateTotals);
-
-    document.getElementById('barcode-search').addEventListener('input', function () {
-        const val = this.value.trim();
-        if (!val) return;
-        const branchId = getSelectedBranchId();
-        const options = document.querySelectorAll(`.product-select option[data-barcode="${val}"]`);
-        let target = Array.from(document.querySelectorAll('.product-select')).find(s => !s.value);
-        if (!target) {
-            document.getElementById('add-row').click();
-            target = document.querySelectorAll('.product-select');
-            target = target[target.length - 1];
-        }
-        options.forEach(opt => {
-            if (opt.parentElement === target) {
-                target.value = opt.value;
-                target.dispatchEvent(new Event('change'));
-            }
-        });
-    });
-
-    function applyFilters() {
-        const selectedCategory = document.getElementById('category-filter').value;
-        const selectedBrand = document.getElementById('brand-filter').value;
-        tbody.querySelectorAll('tr').forEach(tr => {
-            const select = tr.querySelector('.product-select');
-            Array.from(select.options).forEach(opt => {
-                if (!opt.value) return;
-                const matchesCategory = !selectedCategory || opt.getAttribute('data-category') === selectedCategory;
-                const matchesBrand = !selectedBrand || opt.getAttribute('data-brand') === selectedBrand;
-                opt.style.display = (matchesCategory && matchesBrand) ? '' : 'none';
-            });
-        });
-    }
-
-    document.getElementById('category-filter').addEventListener('change', applyFilters);
-    document.getElementById('brand-filter').addEventListener('change', applyFilters);
-
-    document.getElementById('branch_id').addEventListener('change', function() {
-        updateProductSelects();
+    $(document).on('input', '.quantity-input', function() {
         updateTotals();
     });
 
-    // أول صف تلقائي
-    document.getElementById('add-row').click();
+    $(document).on('click', '.btn-remove-row', function() {
+        $(this).closest('tr').remove();
+        updateIndexes();
+        updateTotals();
+    });
+
+    $('#barcode-search').on('input', function () {
+        const val = this.value.trim();
+        if (val.length >= 8) {
+            const option = $(`.product-select option[data-barcode="${val}"]`).first();
+            if (option.length) {
+                let select = $('.product-select').filter(function() { return !this.value; }).first();
+                if (!select.length) {
+                    createRow();
+                    select = $('#items-table tbody tr:last-child .product-select');
+                }
+                select.val(option.val()).trigger('change');
+                this.value = '';
+            }
+        }
+    });
+
+    $('#category-filter, #brand-filter').change(applyFilters);
+    $('#discount, #initial-payment').on('input', updateTotals);
+
+    $('#customer_name').on('input', function() {
+        if ($(this).val().trim()) {
+            $('#customer_id').val('').trigger('change');
+            $('#customer_id').parent().hide();
+        } else {
+            $('#customer_id').parent().show();
+        }
+    });
+
+    $('#sale-form').on('submit', function(e) {
+        e.preventDefault();
+        const formData = $(this).serialize();
+        $.post("{{ route('admin.sales.store') }}", formData, function(response) {
+            alert('تم حفظ الفاتورة بنجاح');
+            window.location.reload();
+        }).fail(function(err) {
+            alert('حدث خطأ أثناء الحفظ');
+        });
+    });
+
+    // Initial Setup
+    createRow();
+    $('#customer_id, #category-filter, #brand-filter').select2({ dir: "rtl", width: '100%' });
 });
 </script>
 @endpush
+

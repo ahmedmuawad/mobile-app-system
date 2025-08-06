@@ -111,8 +111,13 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     // المعاملات
     Route::resource('wallet_transactions', WalletTransactionController::class);
 
-    // الفروع في السايدبار
-Route::get('change-branch/{id}', [App\Http\Controllers\BranchController::class, 'changeBranch'])->name('change.branch');
+    // ✅ اختيار الفرع عبر POST من form (اللي في السايدبار أو الـ navbar)
+    Route::post('/change-branch', function (\Illuminate\Http\Request $request) {
+        session(['current_branch_id' => $request->branch_id]);
+        return back();
+    })->name('change-branch');
 
+    // ✅ اختيار الفرع من رابط GET (لما تضغط من القائمة المنسدلة)
+    Route::get('change-branch/{id}', [BranchController::class, 'changeBranch'])->name('change.branch');
 
 });

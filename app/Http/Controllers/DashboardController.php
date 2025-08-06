@@ -3,93 +3,116 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
-use App\Models\Sale;
-use App\Models\Repair;
-use App\Models\Expense;
-use App\Models\Purchase;
-use Carbon\Carbon;
 
 class DashboardController extends Controller
 {
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+
+    /**
+     * Show the application dashboard.
+     *
+     * @return \Illuminate\Contracts\Support\Renderable
+     */
     public function index()
     {
+        $branch_id = session('current_branch_id');
 
-        $today = Carbon::today();
-        $weekAgo = Carbon::now()->subDays(6)->startOfDay();
-        $monthStart = Carbon::now()->startOfMonth();
+        // مبيعات اليوم
+        $today_sales = \App\Models\Sale::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })->whereDate('created_at', today())->sum('total');
 
-        // إحصائيات اليوم
-        $today_sales     = Sale::whereDate('created_at', $today)->sum('total') + Repair::whereDate('created_at', $today)->sum('total');
-        $today_repairs   = Repair::whereDate('created_at', $today)->sum('total');
-        $today_expenses  = Expense::whereDate('expense_date', $today)->sum('amount');
-        $today_purchases = Purchase::whereDate('created_at', $today)->sum('total_amount');
-        $today_sales_profit = Sale::whereDate('created_at', $today)->sum('profit');
+        // مصروفات اليوم
+        $today_expenses = \App\Models\Expense::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })->whereDate('created_at', today())->sum('amount');
 
-        // حساب أرباح المنتجات في الصيانة (اليوم)
-        $today_repair_product_profit = Repair::whereDate('created_at', $today)
-            ->get()
-            ->sum(function($repair) {
-                $product_profit = 0;
-                foreach ($repair->spareParts as $sparePart) {
-                    $product_profit += ($sparePart->sale_price - $sparePart->purchase_price) * $sparePart->pivot->quantity;
-                }
-                return $product_profit;
-            });
+        // // مبيعات الصيانة اليوم
+        // $today_repairs = \App\Models\Repair::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereDate('created_at', today())->sum('total');
 
-        // حساب أرباح المصنعية (اليوم)
-        $today_repair_labor_profit = Repair::whereDate('created_at', $today)
-            ->sum('repair_cost'); // ربح المصنعية فقط
+        // // أرباح قطع غيار الصيانة اليوم
+        // $today_repair_product_profit = \App\Models\Repair::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereDate('created_at', today())->sum('profit');
 
-        // الآن فقط احسب الربح الكلي لليوم
-        $today_profit = $today_sales_profit + $today_repair_product_profit + $today_repair_labor_profit;
+        // // مصنعية الصيانة والسوفتوير اليوم
+        // $today_repair_labor_profit = \App\Models\Repair::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereDate('created_at', today())->sum('labor_profit');
 
-        // آخر 7 أيام (للرسم البياني)
-        $last_7_days = collect();
-        for ($i = 6; $i >= 0; $i--) {
-            $day = Carbon::now()->subDays($i)->format('Y-m-d');
-            $daily_total = Sale::whereDate('created_at', $day)->sum('total') +
-                           Repair::whereDate('created_at', $day)->sum('total');
+        // // مشتريات اليوم
+        // $today_purchases = \App\Models\Purchase::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereDate('created_at', today())->sum('total');
 
-            $last_7_days->push([
-                'date' => $day,
-                'total' => $daily_total
-            ]);
-        }
+        // أرباح اليوم
+        $today_profit = \App\Models\Sale::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })->whereDate('created_at', today())->sum('profit');
 
-        // إحصائيات الشهر
-        $month_sales = Sale::whereBetween('created_at', [$monthStart, now()])->sum('total')
-            + Repair::whereBetween('created_at', [$monthStart, now()])->sum('total');
-        $month_repairs   = Repair::whereBetween('created_at', [$monthStart, now()])->sum('total');
-        $month_expenses  = Expense::whereBetween('expense_date', [$monthStart, now()])->sum('amount');
-        $month_purchases = Purchase::whereBetween('created_at', [$monthStart, now()])->sum('total_amount');
+        // آخر 7 أيام (مبيعات)
+        $last_7_days = \App\Models\Sale::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })
+        ->whereDate('created_at', '>=', now()->subDays(6)->toDateString())
+        ->selectRaw('DATE(created_at) as date, SUM(total) as total')
+        ->groupBy('date')
+        ->orderBy('date')
+        ->get();
 
-        // أرباح المنتجات في الصيانة (الشهر)
-        $month_repair_product_profit = Repair::whereBetween('created_at', [$monthStart, now()])
-            ->get()
-            ->sum(function($repair) {
-                $product_profit = 0;
-                foreach ($repair->spareParts as $sparePart) {
-                    $product_profit += ($sparePart->sale_price - $sparePart->purchase_price) * $sparePart->pivot->quantity;
-                }
-                return $product_profit;
-            });
+        // مبيعات الشهر
+        $month_sales = \App\Models\Sale::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })->whereMonth('created_at', now()->month)->sum('total');
 
-        // أرباح المصنعية (الشهر)
-        $month_repair_labor_profit = Repair::whereBetween('created_at', [$monthStart, now()])
-            ->sum('repair_cost');
+        // مصروفات الشهر
+        $month_expenses = \App\Models\Expense::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })->whereMonth('created_at', now()->month)->sum('amount');
 
-        // أرباح مبيعات الشهر
-        $month_sales_profit = Sale::whereBetween('created_at', [$monthStart, now()])->sum('profit');
+        // // مبيعات الصيانة الشهر
+        // $month_repairs = \App\Models\Repair::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereMonth('created_at', now()->month)->sum('total');
 
-        // الربح الحقيقي للشهر
-        $month_profit    = $month_sales_profit + $month_repair_product_profit + $month_repair_labor_profit;
+        // // أرباح قطع غيار الصيانة الشهر
+        // $month_repair_product_profit = \App\Models\RepairItem::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereMonth('created_at', now()->month)->sum('profit');
+
+        // // مصنعية الصيانة والسوفتوير الشهر
+        // $month_repair_labor_profit = \App\Models\Repair::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereMonth('created_at', now()->month)->sum('labor_profit');
+
+        // // مشتريات الشهر
+        // $month_purchases = \App\Models\Purchase::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+        //     $q->where('branch_id', $branch_id);
+        // })->whereMonth('created_at', now()->month)->sum('total');
+
+        // أرباح الشهر
+        $month_profit = \App\Models\Sale::when($branch_id && $branch_id !== 'all', function($q) use ($branch_id) {
+            $q->where('branch_id', $branch_id);
+        })->whereMonth('created_at', now()->month)->sum('profit');
 
         return view('home', compact(
-            'today_sales', 'today_expenses', 'today_repairs', 'today_purchases', 'today_profit',
-            'month_sales', 'month_expenses', 'month_repairs', 'month_purchases', 'month_profit',
+            // 'today_sales', 'today_expenses', 'today_repairs', 'today_repair_product_profit', 'today_repair_labor_profit', 'today_purchases', 'today_profit',
+            // 'last_7_days',
+            // 'month_sales', 'month_expenses', 'month_repairs', 'month_repair_product_profit', 'month_repair_labor_profit', 'month_purchases', 'month_profit'
+            'today_sales', 'today_expenses',  'today_profit',
             'last_7_days',
-            'today_repair_product_profit', 'today_repair_labor_profit',  // إضافة أرباح المنتجات والمصنعية لليوم
-            'month_repair_product_profit', 'month_repair_labor_profit'   // إضافة أرباح المنتجات والمصنعية للشهر
+            'month_sales', 'month_expenses', 'month_profit'
+
         ));
     }
 }

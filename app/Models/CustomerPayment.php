@@ -8,13 +8,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class CustomerPayment extends Model
 {
     protected $fillable = [
+        'company_id',
+        'branch_id',
         'customer_id',
         'amount',
         'note',
         'repair_id',
         'sale_id',
-        'payment_date', // ✅ أضفناه
-
+        'payment_date',
     ];
 
     public function customer(): BelongsTo
@@ -29,11 +30,16 @@ class CustomerPayment extends Model
 
     public function sale(): BelongsTo
     {
-        return $this->belongsTo(Sale::class); // ✅ العلاقة بين الدفع والفاتورة
+        return $this->belongsTo(Sale::class);
     }
 
-    public function payments()
+    public function company(): BelongsTo
     {
-        return $this->hasMany(CustomerPayment::class, 'repair_id');
+        return $this->belongsTo(Company::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 }

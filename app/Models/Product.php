@@ -10,6 +10,8 @@ class Product extends Model
     use HasFactory;
 
     protected $fillable = [
+        'company_id',
+        'branch_id',
         'name',
         'image',
         'purchase_price',
@@ -23,6 +25,16 @@ class Product extends Model
     ];
 
     protected $appends = ['final_price'];
+
+    public function company()
+    {
+        return $this->belongsTo(Company::class);
+    }
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     public function category()
     {
@@ -39,16 +51,15 @@ class Product extends Model
         return $this->belongsToMany(Branch::class)
             ->withPivot([
                 'price',
-                'purchase_price',     // ✅ أضف هذا
+                'purchase_price',
                 'stock',
-                'is_tax_included',    // ✅ أضف هذا
-                'tax_percentage'      // ✅ أضف هذا
+                'is_tax_included',
+                'tax_percentage',
             ])
             ->withTimestamps();
     }
 
-
-    // ✅ حساب السعر بعد الضريبة (final_price)
+    // ✅ السعر بعد الضريبة
     public function getFinalPriceAttribute()
     {
         if ($this->is_tax_included) {
@@ -58,14 +69,14 @@ class Product extends Model
         $taxRate = $this->tax_percentage ?? 0;
         return $this->sale_price + ($this->sale_price * ($taxRate / 100));
     }
+
+    // ✅ السعر بعد الضريبة حسب الفرع
     public function getFinalPriceForBranch($branchId = null)
     {
-        // لو مفيش فرع محدد، استخدم السعر العام
         if (!$branchId) {
             return $this->final_price;
         }
 
-        // تحميل بيانات الفرع المحدد من العلاقة المحملة مسبقًا
         $branch = $this->branches->firstWhere('id', $branchId);
 
         if ($branch && $branch->pivot) {
@@ -73,16 +84,9 @@ class Product extends Model
             $isTaxIncluded = $branch->pivot->is_tax_included;
             $taxPercentage = $branch->pivot->tax_percentage ?? 0;
 
-            if ($isTaxIncluded) {
-                return $price;
-            } else {
-                return $price + ($price * ($taxPercentage / 100));
-            }
+            return $isTaxIncluded ? $price : $price + ($price * ($taxPercentage / 100));
         }
 
-        // fallback في حالة مفيش بيانات pivot
         return $this->final_price;
     }
-
-
 }

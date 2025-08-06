@@ -31,29 +31,29 @@
 
         <!-- بيانات الفاتورة -->
         <table class="table table-bordered">
-            <tr>
+            <tr class="no-print-col">
                 <th>العميل</th>
                 <td>{{ $sale->customer?->name ?? '-' }}</td>
             </tr>
-            <tr>
+            <tr class="no-print-col">
                 <th>اسم العميل (يدوي)</th>
                 <td>{{ $sale->customer_name ?? '-' }}</td>
             </tr>
 
             @if($sale->discount > 0)
-                <tr>
+                <tr class="no-print-col">
                     <th>إجمالي بدون خصم</th>
                     <td>{{ number_format($sale->total + $sale->discount, 2) }} جنيه</td>
                 </tr>
-                <tr>
+                <tr class="no-print-col">
                     <th>الخصم</th>
                     <td>{{ number_format($sale->discount, 2) }} جنيه</td>
                 </tr>
             @endif
 
             <tr>
-                <th>الإجمالي النهائي</th>
-                <td>{{ number_format($sale->total, 2) }} جنيه</td>
+                <th class="no-print-col">الإجمالي النهائي</th>
+                <td class="no-print-col">{{ number_format($sale->total, 2) }} جنيه</td>
             </tr>
 
             <tr>
@@ -62,7 +62,7 @@
             </tr>
         </table>
 
-        <!-- تفاصيل الأصناف -->
+        {{-- تفاصيل الأصناف --}}
         <h4 class="mt-4">تفاصيل الأصناف:</h4>
         <table class="table table-striped table-bordered text-center">
             <thead>
@@ -70,53 +70,49 @@
                     <th>المنتج</th>
                     <th>الكمية</th>
                     <th>السعر قبل الضريبة</th>
-                    <th>نسبة الضريبة</th>
-                    <th>قيمة الضريبة</th>
+                    <th class="no-print-col">نسبة الضريبة</th>
+                    <th class="no-print-col">قيمة الضريبة</th>
                     <th>السعر بعد الضريبة</th>
                     <th>إجمالي الصنف</th>
-                    <th>الضريبة مشمولة؟</th>
+                    <th class="no-print-col">الضريبة مشمولة؟</th>
                 </tr>
             </thead>
             <tbody>
+                @php
+                    $totalBeforeTax = 0;
+                    $totalTax = 0;
+                    $totalAfterTax = 0;
+                @endphp
                 @foreach($sale->saleItems as $item)
                     @php
-                        $product = \App\Models\Product::find($item->product_id);
-                        $taxRate = $product?->tax_percentage ?? 0;
-
-                        // دائماً sale_price هو السعر الأساسي قبل الضريبة
-                        $base = $item->sale_price;
-                        $taxValue = $base * ($taxRate / 100);
-                        $priceWithTax = $base + $taxValue;
-                        $subtotal = $priceWithTax * $item->quantity;
-
-                        // جمع الإجماليات
-                        $totalBeforeTax += $base * $item->quantity;
-                        $totalTax += $taxValue * $item->quantity;
+                        $subtotal = $item->sale_price * $item->quantity;
+                        $totalBeforeTax += $item->base_price * $item->quantity;
+                        $totalTax += $item->tax_value * $item->quantity;
                         $totalAfterTax += $subtotal;
                     @endphp
                     <tr>
                         <td>{{ $item->product_name }}</td>
                         <td>{{ $item->quantity }}</td>
-                        <td>{{ number_format($base, 2) }}</td>
-                        <td>{{ $taxRate }}%</td>
-                        <td>{{ number_format($taxValue, 2) }}</td>
-                        <td>{{ number_format($priceWithTax, 2) }}</td>
-                        <td>{{ number_format($subtotal, 2) }}</td>
-                        <td>
-                          {{ $product && $product->is_tax_included ? 'شامل' : 'غير شامل' }}
+                        <td>{{ number_format($item->base_price, 2) }}</td>
+                        <td class="no-print-col">{{ rtrim(rtrim(number_format($item->tax_percentage, 2), '0'), '.') }}%</td>
+                        <td class="no-print-col">{{ number_format($item->tax_value, 2) }}</td>
+                        <td>{{ number_format($item->sale_price, 2) }}</td>
+                        <td>{{ number_format($item->sale_price * $item->quantity, 2) }}</td>
+                        <td class="no-print-col">
+                          {{ $item->tax_value > 0 && $item->base_price < $item->sale_price ? 'شامل' : 'غير شامل' }}
                         </td>
                     </tr>
                 @endforeach
             </tbody>
-            <tfoot>
-                <tr>
-                    <th colspan="6">الإجمالي الكلي</th>
-                    <th>{{ number_format($totalAfterTax, 2) }} جنيه</th>
+            <tfoot class="no-print-col">
+                <tr class="no-print-col">
+                    <th class="no-print-col" colspan="5">الإجمالي الكلي</th>
+                    <th class="no-print-col">{{ number_format($totalAfterTax, 2) }} جنيه</th>
                 </tr>
             </tfoot>
         </table>
 
-        <!-- تفاصيل المدفوعات والإجماليات -->
+        {{-- ملخص الفاتورة --}}
         <h4 class="mt-4">ملخص الفاتورة:</h4>
         <table class="table table-bordered text-center">
             <tr>
@@ -201,6 +197,9 @@ function printInvoice(mode = 'a4') {
             th, td { border: 1px solid #000; padding: 6px; text-align: center; font-size: 14px; }
             h2, h4, h5 { text-align: center; margin: 5px 0; }
             img { display: block; margin: 0 auto; }
+            @media print {
+                .no-print-col, .no-print-col * { display: none !important; }
+            }
         </style>
     `;
 
@@ -213,6 +212,10 @@ function printInvoice(mode = 'a4') {
                 th, td { border: 1px dashed #000; padding: 4px; text-align: center; font-size: 12px; }
                 h2, h4, h5 { text-align: center; margin: 2px 0; font-size: 14px; }
                 img { display: block; margin: 0 auto; max-height: 50px; }
+                            @media print {
+                .no-print-col, .no-print-col * { display: none !important; }
+            }
+
             </style>
         `;
     }

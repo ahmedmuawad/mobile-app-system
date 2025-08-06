@@ -10,8 +10,12 @@ class Branch extends Model
     use HasFactory;
 
     protected $fillable = [
-        'company_id', 'name', 'address',
-        'phone', 'is_main', 'is_active'
+        'company_id',
+        'name',
+        'address',
+        'phone',
+        'is_main',
+        'is_active'
     ];
 
     public function company()
@@ -20,18 +24,23 @@ class Branch extends Model
     }
 
     public function users()
-{
-    return $this->belongsToMany(User::class);
-}
+    {
+        return $this->belongsToMany(User::class);
+    }
 
     /**
-     * علاقة Many-to-Many مع المنتجات باستخدام pivot (مع السعر والمخزون)
+     * علاقة Many-to-Many مع المنتجات باستخدام pivot (مع السعر والمخزون والضريبة)
      */
     public function products()
     {
         return $this->belongsToMany(Product::class)
-            ->withPivot(['price', 'stock'])
+            ->withPivot([
+                'price',
+                'purchase_price',     // ✅ تم إضافته
+                'stock',
+                'is_tax_included',    // ✅ تم إضافته
+                'tax_percentage'      // ✅ تم إضافته
+            ])
             ->withTimestamps();
     }
-
 }

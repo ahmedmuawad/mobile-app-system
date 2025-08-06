@@ -39,69 +39,78 @@
             <input type="text" name="customer_name" class="form-control" value="{{ old('customer_name', $sale->customer_name) }}">
         </div>
 
-        <!-- اختيار الفرع -->
-        <div class="form-group">
-            <label>اختر الفرع:</label>
-            <select name="branch_id" class="form-control" required>
-                <option value="">-- اختر فرع --</option>
-                @foreach($branches as $branch)
-                    <option value="{{ $branch->id }}" {{ (old('branch_id') ?? $sale->branch_id ?? null) == $branch->id ? 'selected' : '' }}>
-                        {{ $branch->name }}
-                    </option>
-                @endforeach
-            </select>
-        </div>
-
-        <hr>
-
         <!-- الأصناف -->
-        <h5>الأصناف</h5>
-        <div id="items-wrapper">
-            @foreach($sale->saleItems as $index => $item)
-                <div class="item-row border p-3 mb-2">
-                    <div class="form-row">
-                        <div class="col-md-4">
-                            <label>المنتج:</label>
-                            <select name="items[{{ $index }}][product_id]" class="form-control product-select" data-index="{{ $index }}" required>
-                                <option value="">-- اختر --</option>
-                                @foreach($products as $product)
-                                    <option value="{{ $product->id }}"
-                                        data-price="{{ $product->sale_price }}"
-                                        data-tax-percentage="{{ $product->tax_percentage }}"
-                                        data-tax-included="{{ $product->is_tax_included ? 1 : 0 }}"
-                                        {{ $item->product_id == $product->id ? 'selected' : '' }}>
-                                        {{ $product->name }}
+        <h4>الأصناف المباعة</h4>
+        <table class="table table-bordered" id="items-table">
+            <thead>
+                <tr>
+                    <th width="30%">المنتج</th>
+                    <th>الكمية</th>
+                    <th>السعر قبل الضريبة</th>
+                    <th>الضريبة المضافة</th>
+                    <th>السعر بعد الضريبة</th>
+                    <th>نوع السعر</th>
+                    <th>إجمالي الصنف</th>
+                    <th>الإجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($sale->saleItems as $index => $item)
+                    @php
+                        $product = collect($branchProducts)->firstWhere('id', $item->product_id);
+                        $taxRate = $product['tax_percentage'] ?? 0;
+                        $taxIncluded = $product['tax_included'] ?? 0;
+                        $base = $item->sale_price;
+                        $tax = 0;
+                        $final = $item->sale_price;
+                        $taxType = 'بدون ضريبة';
+                        if ($taxRate > 0) {
+                            if ($taxIncluded) {
+                                $base = $item->sale_price / (1 + $taxRate / 100);
+                                $tax = $item->sale_price - $base;
+                                $taxType = "شامل ($taxRate%)";
+                            } else {
+                                $tax = $base * ($taxRate / 100);
+                                $final = $base + $tax;
+                                $taxType = "غير شامل ($taxRate%)";
+                            }
+                        }
+                    @endphp
+                    <tr>
+                        <td class="product-cell">
+                            <select name="items[{{ $index }}][product_id]" class="form-control product-select" data-index="{{ $index }}">
+                                <option value="">-- اختر منتج --</option>
+                                @foreach($branchProducts as $prod)
+                                    <option value="{{ $prod['id'] }}"
+                                        data-price="{{ $prod['price'] }}"
+                                        data-barcode="{{ $prod['barcode'] }}"
+                                        data-category="{{ $prod['category_id'] }}"
+                                        data-brand="{{ $prod['brand_id'] }}"
+                                        data-tax-included="{{ $prod['tax_included'] }}"
+                                        data-tax-percentage="{{ $prod['tax_percentage'] }}"
+                                        {{ $item->product_id == $prod['id'] ? 'selected' : '' }}>
+                                        {{ $prod['name'] }}
                                     </option>
                                 @endforeach
                             </select>
-                        </div>
-                        <div class="col-md-2">
-                            <label>الكمية:</label>
-                            <input type="number" name="items[{{ $index }}][quantity]" class="form-control quantity-input" required min="1" value="{{ $item->quantity }}" data-index="{{ $index }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label>سعر البيع:</label>
-                            <input type="number" name="items[{{ $index }}][sale_price]" class="form-control sale-price" required min="0" step="0.01" value="{{ $item->sale_price }}">
-                        </div>
-                        <div class="col-md-2">
-                            <label>إجمالي الصنف:</label>
-                            <input type="number" class="form-control item-total" readonly>
-                        </div>
-                        <div class="col-md-2 d-flex align-items-end">
-                            <button type="button" class="btn btn-danger remove-item">حذف</button>
-                        </div>
-                    </div>
-                </div>
-            @endforeach
-        </div>
-
-        <button type="button" class="btn btn-secondary mb-3" id="add-item">+ إضافة صنف</button>
+                        </td>
+                        <td><input type="number" name="items[{{ $index }}][quantity]" class="form-control quantity-input" value="{{ $item->quantity }}" min="1"></td>
+                        <td><input type="number" class="form-control base-price" value="{{ round($base,2) }}" readonly><input type="hidden" name="items[{{ $index }}][sale_price]" class="sale-price-hidden" value="{{ round($final,2) }}"></td>
+                        <td><input type="number" class="form-control tax-value" value="{{ round($tax,2) }}" readonly></td>
+                        <td><input type="number" class="form-control final-price" value="{{ round($final,2) }}" readonly></td>
+                        <td><input type="text" class="form-control tax-type" value="{{ $taxType }}" readonly></td>
+                        <td><input type="number" class="form-control item-total" readonly></td>
+                        <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-success mb-3" id="add-row">إضافة صنف</button>
 
         <!-- الخصم -->
         <div class="form-group">
             <label>الخصم (جنيه):</label>
-            <input type="number" step="0.01" name="discount" class="form-control" value="{{ old('discount', $sale->discount ?? 0) }}">
-        </div>
+        <input type="number" step="0.01" name="discount" id="discount" class="form-control" value="{{ old('discount', $sale->discount ?? 0) }}">        </div>
 
         <!-- الإجماليات بعد الأصناف مباشرة -->
         <div class="row mt-4">
@@ -135,7 +144,9 @@
             <div class="col-md-4">
                 <div class="form-group">
                     <label>المبلغ المتبقي:</label>
-                    <input type="number" id="remaining-amount" class="form-control" value="{{ number_format($remaining ?? 0, 2) }}" readonly>
+                    <div class="input-group">
+                        <input type="number" id="remaining-amount" class="form-control" value="{{ number_format($remaining ?? 0, 2) }}" readonly>
+                    </div>
                 </div>
             </div>
             <div class="col-md-4">
@@ -199,53 +210,19 @@
         <tr>
             <th>الإجمالي قبل الضريبة</th>
             <td>
-                {{ number_format(
-                    $sale->saleItems->sum(function($item) use ($products) {
-                        $product = $products->where('id', $item->product_id)->first();
-                        $taxRate = $product?->tax_percentage ?? 0;
-                        if ($product && $product->is_tax_included) {
-                            $base = $item->sale_price / (1 + $taxRate / 100);
-                        } else {
-                            $base = $item->sale_price;
-                        }
-                        return $base * $item->quantity;
-                    }), 2) }} جنيه
+                {{ number_format($sale->saleItems->sum(fn($item) => $item->base_price * $item->quantity), 2) }} جنيه
             </td>
         </tr>
         <tr>
             <th>قيمة الضريبة</th>
             <td>
-                {{ number_format(
-                    $sale->saleItems->sum(function($item) use ($products) {
-                        $product = $products->where('id', $item->product_id)->first();
-                        $taxRate = $product?->tax_percentage ?? 0;
-                        if ($product && $product->is_tax_included) {
-                            $base = $item->sale_price / (1 + $taxRate / 100);
-                            $taxValue = $item->sale_price - $base;
-                        } else {
-                            $base = $item->sale_price;
-                            $taxValue = $base * ($taxRate / 100);
-                        }
-                        return $taxValue * $item->quantity;
-                    }), 2) }} جنيه
+                {{ number_format($sale->saleItems->sum(fn($item) => $item->tax_value * $item->quantity), 2) }} جنيه
             </td>
         </tr>
         <tr>
             <th>الإجمالي بعد الضريبة</th>
             <td>
-                {{ number_format(
-                    $sale->saleItems->sum(function($item) use ($products) {
-                        $product = $products->where('id', $item->product_id)->first();
-                        $taxRate = $product?->tax_percentage ?? 0;
-                        if ($product && $product->is_tax_included) {
-                            $priceWithTax = $item->sale_price;
-                        } else {
-                            $base = $item->sale_price;
-                            $taxValue = $base * ($taxRate / 100);
-                            $priceWithTax = $base + $taxValue;
-                        }
-                        return $priceWithTax * $item->quantity;
-                    }), 2) }} جنيه
+                {{ number_format($sale->saleItems->sum(fn($item) => $item->sale_price * $item->quantity), 2) }} جنيه
             </td>
         </tr>
         @if($sale->discount > 0)
@@ -263,205 +240,216 @@
 @endsection
 
 @push('scripts')
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script>
-    const branchProducts = @json($branchProducts);
-</script>
-<script>
+$(document).ready(function() {
+    const products = @json($branchProducts);
 
-    function getSelectedBranchId() {
-        return document.querySelector('[name="branch_id"]').value;
+    function round(val) {
+        return Math.round(val * 100) / 100;
     }
 
-    function getProductOptions(branchId, selectedId = null) {
-        let options = '<option value="">-- اختر --</option>';
-        if (branchProducts[branchId]) {
-            branchProducts[branchId].forEach(prod => {
-                options += `<option value="${prod.id}" data-price="${prod.price}" data-tax-percentage="${prod.tax_percentage}" data-tax-included="${prod.tax_included}" data-stock="${prod.stock}" ${selectedId == prod.id ? 'selected' : ''}>${prod.name} (متوفر: ${prod.stock})</option>`;
+    function truncateName(name, wordLimit = 5) {
+        const words = name.trim().split(/\s+/);
+        if (words.length > wordLimit) {
+            return words.slice(0, wordLimit).join(' ') + ' ...';
+        }
+        return name;
+    }
+
+    function updateIndexes() {
+        $('#items-table tbody tr').each(function(i) {
+            $(this).find('[name]').each(function() {
+                $(this).attr('name', $(this).attr('name').replace(/items\[\d+\]/, `items[${i}]`));
             });
-        }
-        return options;
-    }
-
-    function updateProductSelects() {
-        const branchId = getSelectedBranchId();
-        document.querySelectorAll('.product-select').forEach(select => {
-            const selected = select.value;
-            select.innerHTML = getProductOptions(branchId, selected);
-            // حدث السعر والضريبة إذا تغيرت بيانات المنتج
-            const selectedOption = select.querySelector(`option[value="${selected}"]`);
-            if (selectedOption) {
-                const priceInput = select.closest('.item-row').querySelector('.sale-price');
-                priceInput.value = selectedOption.getAttribute('data-price') || 0;
-                calculateInvoiceTotals();
-            }
         });
     }
 
-    function calculateItemTotal(index) {
-        const quantityInput = document.querySelector(`[name="items[${index}][quantity]"]`);
-        const priceInput = document.querySelector(`[name="items[${index}][sale_price]"]`);
-        const totalInputs = document.querySelectorAll('.item-total');
-        const totalInput = totalInputs[index];
+    function updateTotals() {
+        let totalBefore = 0, totalTax = 0, totalAfter = 0;
 
-        if (quantityInput && priceInput && totalInput) {
-            const quantity = parseFloat(quantityInput.value) || 0;
-            const price = parseFloat(priceInput.value) || 0;
-            totalInput.value = (quantity * price).toFixed(2);
-            calculateInvoiceTotals();
-        }
+        $('#items-table tbody tr').each(function() {
+            const qty = parseFloat($(this).find('.quantity-input').val()) || 0;
+            const base = parseFloat($(this).find('.base-price').val()) || 0;
+            const tax = parseFloat($(this).find('.tax-value').val()) || 0;
+            const final = parseFloat($(this).find('.final-price').val()) || 0;
+
+            totalBefore += base * qty;
+            totalTax += tax * qty;
+            totalAfter += final * qty;
+
+            $(this).find('.item-total').val(round(final * qty));
+        });
+
+        $('#total-before-tax').val(round(totalBefore));
+        $('#total-tax').val(round(totalTax));
+        $('#total-after-tax').val(round(totalAfter));
+
+        const discount = parseFloat($('#discount').val()) || 0;
+        const paid = parseFloat($('#initial-payment').val()) || 0;
+        const remaining = Math.max(totalAfter - discount - paid, 0);
+        $('#remaining-amount').val(round(remaining));
     }
 
-    function calculateInvoiceTotals() {
-        let totalBeforeTax = 0;
-        let totalTax = 0;
-        let totalAfterTax = 0;
+    function applyFilters() {
+        const cat = $('#category-filter').val();
+        const brand = $('#brand-filter').val();
 
-        document.querySelectorAll('.item-row').forEach((row, idx) => {
-            const productSelect = row.querySelector('.product-select');
-            const quantityInput = row.querySelector('.quantity-input');
-            const priceInput = row.querySelector('.sale-price');
-            const totalInput = row.querySelector('.item-total');
+        $('.product-select').each(function() {
+            const select = $(this);
+            const currentVal = select.val();
+            const currentProduct = products.find(p => p.id == currentVal);
 
-            const quantity = parseFloat(quantityInput?.value) || 0;
-            const salePrice = parseFloat(priceInput?.value) || 0;
+            select.empty().append(`<option value="">-- اختر منتج --</option>`);
 
-            let taxRate = 0, isTaxIncluded = false;
-            if (productSelect && productSelect.selectedOptions.length) {
-                const selected = productSelect.selectedOptions[0];
-                taxRate = parseFloat(selected.getAttribute('data-tax-percentage')) || 0;
-                isTaxIncluded = selected.getAttribute('data-tax-included') === '1';
+            if (currentProduct) {
+                select.append(`<option value="${currentProduct.id}"
+                    data-price="${currentProduct.price}"
+                    data-barcode="${currentProduct.barcode}"
+                    data-category="${currentProduct.category_id}"
+                    data-brand="${currentProduct.brand_id}"
+                    data-tax-included="${currentProduct.tax_included}"
+                    data-tax-percentage="${currentProduct.tax_percentage}">
+                    ${truncateName(currentProduct.name)} (خارج الفلتر)
+                </option>`);
             }
 
-            let base = salePrice, taxValue = 0, priceWithTax = salePrice;
+            products.forEach(product => {
+                const matchCat = !cat || product.category_id == cat;
+                const matchBrand = !brand || product.brand_id == brand;
 
-            if (isTaxIncluded) {
-                base = salePrice / (1 + taxRate / 100);
-                taxValue = salePrice - base;
-                priceWithTax = salePrice;
+                if (matchCat && matchBrand && product.id != currentVal) {
+                    select.append(`<option value="${product.id}"
+                        data-price="${product.price}"
+                        data-barcode="${product.barcode}"
+                        data-category="${product.category_id}"
+                        data-brand="${product.brand_id}"
+                        data-tax-included="${product.tax_included}"
+                        data-tax-percentage="${product.tax_percentage}">
+                        ${truncateName(product.name)}
+                    </option>`);
+                }
+            });
+
+            select.val(currentVal);
+            select.select2({ dir: "rtl", width: '100%' });
+        });
+    }
+
+    function fillProductData(row, selectedOption) {
+        const base = parseFloat(selectedOption.data('price')) || 0;
+        const taxIncluded = selectedOption.data('tax-included') == 1;
+        const taxRate = parseFloat(selectedOption.data('tax-percentage')) || 0;
+
+        let basePrice = base, tax = 0, finalPrice = base, taxType = 'شامل';
+
+        if (taxRate > 0) {
+            if (taxIncluded) {
+                basePrice = base / (1 + taxRate / 100);
+                tax = base - basePrice;
+                taxType = `شامل (${taxRate}%)`;
             } else {
-                base = salePrice;
-                taxValue = base * (taxRate / 100);
-                priceWithTax = base + taxValue;
+                tax = base * (taxRate / 100);
+                finalPrice = base + tax;
+                taxType = `غير شامل (${taxRate}%)`;
             }
-
-            totalBeforeTax += base * quantity;
-            totalTax += taxValue * quantity;
-            totalAfterTax += priceWithTax * quantity;
-
-            if (totalInput) totalInput.value = (priceWithTax * quantity).toFixed(2);
-        });
-
-        document.getElementById('total-before-tax').value = totalBeforeTax.toFixed(2);
-        document.getElementById('total-tax').value = totalTax.toFixed(2);
-        document.getElementById('total-after-tax').value = totalAfterTax.toFixed(2);
-
-        const discount = parseFloat(document.querySelector('[name="discount"]').value) || 0;
-        const afterDiscount = Math.max(totalAfterTax - discount, 0);
-
-        const initialPayment = parseFloat(document.getElementById('initial-payment').value) || 0;
-        document.getElementById('remaining-amount').value = Math.max(afterDiscount - initialPayment, 0).toFixed(2);
-
-        const newPaymentInput = document.querySelector('[name="new_payment"]');
-        if (newPaymentInput) {
-            newPaymentInput.max = document.getElementById('remaining-amount').value.replace(/[^\d.]/g, '');
-            if (parseFloat(newPaymentInput.value) > parseFloat(newPaymentInput.max)) {
-                newPaymentInput.value = newPaymentInput.max;
-            }
+        } else {
+            taxType = 'بدون ضريبة';
         }
+
+        row.find('.base-price').val(round(basePrice));
+        row.find('.sale-price-hidden').val(round(finalPrice));
+        row.find('.tax-value').val(round(tax));
+        row.find('.final-price').val(round(finalPrice));
+        row.find('.tax-type').val(taxType);
+        updateTotals();
     }
 
-    document.addEventListener('input', function(e) {
-        if (e.target.classList.contains('quantity-input')) {
-            const index = e.target.dataset.index;
-            calculateItemTotal(index);
+    function createRow(productId = '', quantity = 1) {
+        const index = $('#items-table tbody tr').length;
+        const row = $(`
+            <tr>
+                <td class="product-cell">
+                    <select name="items[${index}][product_id]" class="form-control product-select" data-index="${index}">
+                        <option value="">-- اختر منتج --</option>
+                    </select>
+                </td>
+                <td><input type="number" name="items[${index}][quantity]" class="form-control quantity-input" value="${quantity}" min="1"></td>
+                <td><input type="number" class="form-control base-price" readonly><input type="hidden" name="items[${index}][sale_price]" class="sale-price-hidden"></td>
+                <td><input type="number" class="form-control tax-value" readonly></td>
+                <td><input type="number" class="form-control final-price" readonly></td>
+                <td><input type="text" class="form-control tax-type" readonly></td>
+                <td><input type="number" class="form-control item-total" readonly></td>
+                <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
+            </tr>
+        `);
+
+        $('#items-table tbody').append(row);
+        applyFilters();
+
+        if (productId) {
+            row.find('.product-select').val(productId).trigger('change');
         }
-        if (e.target.name && e.target.name.includes('[sale_price]')) {
-            const index = e.target.closest('.item-row').querySelector('.quantity-input').dataset.index;
-            calculateItemTotal(index);
-        }
-        if (e.target.name === "discount" || e.target.name === "initial_payment") {
-            calculateInvoiceTotals();
-        }
+        row.find('.product-select').select2({ dir: "rtl", width: '100%' });
+    }
+
+    $('#add-row').click(function() {
+        createRow();
     });
 
-    document.addEventListener('change', function (e) {
-        if (e.target.classList.contains('product-select')) {
-            const selectedOption = e.target.options[e.target.selectedIndex];
-            const price = selectedOption.getAttribute('data-price');
-            const index = e.target.dataset.index;
-            const priceInput = document.querySelector(`[name="items[${index}][sale_price]"]`);
-            if (priceInput && price) {
-                priceInput.value = price;
-                calculateItemTotal(index);
+    $(document).on('change', '.product-select', function() {
+        const selected = $(this).find('option:selected');
+        fillProductData($(this).closest('tr'), selected);
+    });
+
+    $(document).on('input', '.quantity-input', function() {
+        updateTotals();
+    });
+
+    $(document).on('click', '.btn-remove-row', function() {
+        $(this).closest('tr').remove();
+        updateIndexes();
+        updateTotals();
+    });
+
+    $('#barcode-search').on('input', function () {
+        const val = this.value.trim();
+        if (val.length >= 8) {
+            const option = $(`.product-select option[data-barcode="${val}"]`).first();
+            if (option.length) {
+                let select = $('.product-select').filter(function() { return !this.value; }).first();
+                if (!select.length) {
+                    createRow();
+                    select = $('#items-table tbody tr:last-child .product-select');
+                }
+                select.val(option.val()).trigger('change');
+                this.value = '';
             }
         }
-        if (e.target.name === "branch_id") {
-            updateProductSelects();
-            calculateInvoiceTotals();
+    });
+
+    $('#category-filter, #brand-filter').change(applyFilters);
+    $('#discount, #initial-payment').on('input', updateTotals);
+
+    $('#customer_name').on('input', function() {
+        if ($(this).val().trim()) {
+            $('#customer_id').val('').trigger('change');
+            $('#customer_id').parent().hide();
+        } else {
+            $('#customer_id').parent().show();
         }
     });
 
-    document.getElementById('add-item').addEventListener('click', function () {
-        const wrapper = document.getElementById('items-wrapper');
-        const branchId = getSelectedBranchId();
-        let productOptions = getProductOptions(branchId);
-
-        const newRow = document.createElement('div');
-        newRow.classList.add('item-row', 'border', 'p-3', 'mb-2');
-        newRow.innerHTML = `
-            <div class="form-row">
-                <div class="col-md-4">
-                    <label>المنتج:</label>
-                    <select name="items[${itemIndex}][product_id]" class="form-control product-select" data-index="${itemIndex}" required>
-                        ${productOptions}
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label>الكمية:</label>
-                    <input type="number" name="items[${itemIndex}][quantity]" class="form-control quantity-input" value="1" min="1" data-index="${itemIndex}">
-                </div>
-                <div class="col-md-2">
-                    <label>سعر البيع:</label>
-                    <input type="number" name="items[${itemIndex}][sale_price]" class="form-control sale-price" value="0" step="0.01">
-                </div>
-                <div class="col-md-2">
-                    <label>إجمالي الصنف:</label>
-                    <input type="number" class="form-control item-total" value="0" readonly>
-                </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button type="button" class="btn btn-danger remove-item">حذف</button>
-                </div>
-            </div>
-        `;
-        wrapper.appendChild(newRow);
-        itemIndex++;
+    // عند تحميل الصفحة: املى بيانات الأصناف القديمة
+    $('#items-table tbody tr').each(function() {
+        const select = $(this).find('.product-select');
+        const selected = select.find('option:selected');
+        fillProductData($(this), selected);
     });
 
-    document.addEventListener('click', function (e) {
-        if (e.target.classList.contains('remove-item')) {
-            e.target.closest('.item-row').remove();
-            calculateInvoiceTotals();
-        }
-    });
-
-    // عند تحميل الصفحة لأول مرة
-    document.querySelectorAll('.item-row').forEach((row, idx) => {
-        calculateItemTotal(idx);
-    });
-
-    document.querySelector('[name="new_payment"]').addEventListener('input', function(e) {
-        let remaining = document.getElementById('remaining-amount').value.replace(/[^\d.]/g, '');
-        remaining = parseFloat(remaining) || 0;
-        let val = e.target.value.replace(/[^\d.]/g, '');
-        val = parseFloat(val) || 0;
-        if (val > remaining) {
-            e.target.value = remaining.toFixed(2);
-        }
-    });
-
-    // تحديث المنتجات عند تغيير الفرع أول مرة
-    document.querySelector('[name="branch_id"]').addEventListener('change', updateProductSelects);
-    // تحديث المنتجات عند تحميل الصفحة
-    updateProductSelects();
+    // تفعيل select2 للفلاتر والعملاء
+    $('#customer_id, #category-filter, #brand-filter').select2({ dir: "rtl", width: '100%' });
+});
 </script>
 @endpush
+
