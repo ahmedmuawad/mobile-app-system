@@ -3,7 +3,7 @@
 
 @section('content')
 <div class="container-fluid">
-    <!-- عنوان الصفحة -->
+
     <section class="content-header">
         <div class="container-fluid">
             <div class="row mb-2">
@@ -14,9 +14,8 @@
         </div>
     </section>
 
-    <!-- بطاقة عرض المنتجات -->
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+        <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
             <a href="{{ route('admin.products.create') }}" class="btn btn-primary">
                 <i class="fas fa-plus"></i> إضافة منتج جديد
             </a>
@@ -31,9 +30,9 @@
             }
         @endphp
 
-        <!-- 🔍 فلاتر البحث -->
-        <form method="GET" class="row g-2 px-3 mb-2">
-            <div class="col-md-3">
+        {{-- 🔍 فلاتر البحث --}}
+        <form method="GET" class="row g-2 px-3 py-2">
+            <div class="col-lg-3 col-md-4 col-sm-6">
                 <select name="brand_id" class="form-select" onchange="this.form.submit()">
                     <option value="">🔍 كل الماركات</option>
                     @foreach($brands as $brand)
@@ -43,7 +42,7 @@
                     @endforeach
                 </select>
             </div>
-            <div class="col-md-3">
+            <div class="col-lg-3 col-md-4 col-sm-6">
                 <select name="category_id" class="form-select" onchange="this.form.submit()">
                     <option value="">📂 كل التصنيفات</option>
                     @foreach($categories as $cat)
@@ -62,7 +61,7 @@
             @csrf
             <input type="hidden" name="action" id="bulk-action-type">
 
-            <div class="px-3 mb-2">
+            <div class="px-3 mb-2 d-flex flex-wrap gap-2">
                 <button type="button" class="btn btn-danger" onclick="submitBulkAction('delete')">
                     🗑️ حذف المحدد
                 </button>
@@ -140,23 +139,27 @@
         </form>
         @endif
 
-        <!-- زر تحميل التمبلت وزر الاستيراد بجانب بعض -->
-        <div class="d-flex gap-2 mb-3">
-            <a href="{{ asset('templates/products_template.xlsx') }}" class="btn btn-info">
-                <i class="fas fa-download"></i> تحميل تمبلت المنتجات (Excel)
-            </a>
-            <form action="{{ route('admin.products.import') }}" method="POST" enctype="multipart/form-data" class="d-flex align-items-center">
-                @csrf
-                <input type="file" name="products_file" accept=".xlsx,.xls" class="form-control form-control-sm me-2" required style="max-width: 220px;">
-                <button type="submit" class="btn btn-success">
-                    <i class="fas fa-upload"></i> استيراد منتجات (Excel)
-                </button>
-            </form>
+        {{-- ✅ تحميل واستيراد ملفات Excel --}}
+        <div class="row px-3 py-3">
+            <div class="col-md-6 mb-2">
+                <a href="{{ asset('templates/products_template.xlsx') }}" class="btn btn-info w-100">
+                    <i class="fas fa-download"></i> تحميل تمبلت المنتجات (Excel)
+                </a>
+            </div>
+            <div class="col-md-6">
+                <form action="{{ route('admin.products.import') }}" method="POST" enctype="multipart/form-data" class="d-flex flex-column flex-sm-row align-items-stretch gap-2">
+                    @csrf
+                    <input type="file" name="products_file" accept=".xlsx,.xls" class="form-control" required>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-upload"></i> استيراد منتجات (Excel)
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 </div>
 
-<!-- فورم الحذف الفردي (مخفي) -->
+{{-- فورم حذف فردي --}}
 <form id="delete-form" method="POST" style="display: none;">
     @csrf
     @method('DELETE')

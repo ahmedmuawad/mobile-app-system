@@ -4,11 +4,9 @@
 @section('content')
 <div class="container-fluid">
     <section class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h4 class="arabic-heading">إضافة حركة مالية</h4>
-                </div>
+        <div class="row mb-2">
+            <div class="col-sm-6">
+                <h4 class="arabic-heading">إضافة حركة مالية</h4>
             </div>
         </div>
     </section>
@@ -68,6 +66,21 @@
                     <input type="text" name="target_number" class="form-control" placeholder="مثال: 01012345678">
                 </div>
 
+                {{-- زر فودافون --}}
+<div class="form-group" id="ussd-btn-wrapper" style="display: none;">
+    <label>كود فودافون:</label><br>
+    <a href="#" id="ussd-link" class="btn btn-dark" style="direction: ltr;"></a>
+</div>
+
+{{-- زر اتصالات --}}
+<div class="form-group" id="etisalat-btn-wrapper" style="display: none;">
+    <label>كود اتصالات:</label><br>
+    <a href="tel:*777*1#" class="btn btn-success" style="direction: ltr;">
+        *777*1#
+    </a>
+</div>
+
+
                 <div class="form-group">
                     <label for="note">ملاحظات</label>
                     <textarea name="note" class="form-control" rows="3" placeholder="ملاحظات إضافية (اختياري)"></textarea>
@@ -96,20 +109,7 @@
         ]];
     });
 @endphp
-
-@section('scripts') 
-@php
-    $limits = $wallets->mapWithKeys(function($wallet) {
-        return [$wallet->id => [
-            'provider' => $wallet->provider->name,
-            'remaining_daily_send' => $wallet->provider->getRemainingDailyByType('send'),
-            'remaining_daily_receive' => $wallet->provider->getRemainingDailyByType('receive'),
-            'remaining_daily_bill' => $wallet->provider->getRemainingDailyByType('bill'),
-            'remaining_monthly' => $wallet->provider->remaining_monthly,
-        ]];
-    });
-@endphp
-
+@push('scripts')
 <script>
     const limits = @json($limits);
 
@@ -128,18 +128,60 @@
 
             info = `المتبقي اليومي لعملية (${type}): ${remaining.toLocaleString()} ج.م<br>
                     المتبقي الشهري: ${limitInfo.remaining_monthly.toLocaleString()} ج.م`;
-
-            console.log("Wallet:", walletId, "Type:", type, "Data:", limitInfo);
         }
 
         document.getElementById('limit-info').innerHTML = info;
     }
 
+    function updateUSSDLink() {
+        const type = document.querySelector('[name="type"]').value;
+        const walletSelect = document.querySelector('[name="wallet_id"]');
+        const targetNumber = document.querySelector('[name="target_number"]').value.trim();
+        const amount = document.querySelector('[name="amount"]').value.trim();
+
+        const selectedWallet = walletSelect.options[walletSelect.selectedIndex];
+        const walletText = selectedWallet ? selectedWallet.text : '';
+        const walletNumber = walletText.split(' - ')[0].trim();
+        const isWallet010 = walletNumber.startsWith('010');
+        const isValidTarget = /^01\d{9}$/.test(targetNumber);
+
+        const ussdBtnWrapper = document.getElementById('ussd-btn-wrapper');
+        const ussdLink = document.getElementById('ussd-link');
+        const etisalatBtnWrapper = document.getElementById('etisalat-btn-wrapper');
+
+        // زر فودافون كاش
+        if (type === 'send' && isWallet010 && isValidTarget && amount && parseFloat(amount) > 0) {
+            const code = `*9*7*${targetNumber}*${amount}#`;
+            const telCode = `tel:${code.replace(/#/g, '%23')}`;
+            ussdLink.href = telCode;
+            ussdLink.textContent = code;
+            ussdBtnWrapper.style.display = 'block';
+        } else {
+            ussdBtnWrapper.style.display = 'none';
+        }
+
+        // زر اتصالات كاش
+        if (type === 'send' && walletNumber.startsWith('011')) {
+            etisalatBtnWrapper.style.display = 'block';
+        } else {
+            etisalatBtnWrapper.style.display = 'none';
+        }
+    }
+
     document.addEventListener('DOMContentLoaded', function () {
-        document.querySelector('[name="wallet_id"]').addEventListener('change', updateLimitInfo);
-        document.querySelector('[name="type"]').addEventListener('change', updateLimitInfo);
-        updateLimitInfo(); // لعرض القيم عند تحميل الصفحة
+        document.querySelector('[name="wallet_id"]').addEventListener('change', () => {
+            updateLimitInfo();
+            updateUSSDLink();
+        });
+        document.querySelector('[name="type"]').addEventListener('change', () => {
+            updateLimitInfo();
+            updateUSSDLink();
+        });
+        document.querySelector('[name="target_number"]').addEventListener('input', updateUSSDLink);
+        document.querySelector('[name="amount"]').addEventListener('input', updateUSSDLink);
+
+        updateLimitInfo();
+        updateUSSDLink();
     });
 </script>
-@endsection
-
+@endpush

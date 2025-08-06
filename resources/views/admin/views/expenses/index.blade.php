@@ -45,20 +45,20 @@
                             <td>{{ $expense->name }}</td>
                             <td>{{ $expense->description ?? '-' }}</td>
                             <td>{{ number_format($expense->amount, 2) }} جنيه</td>
-                            <td>{{ $expense->date }}</td>
+                            <td>{{ \Carbon\Carbon::parse($expense->expense_date)->format('Y-m-d') }}</td>
                             <td>
                                 <div class="btn-group">
                                     <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
                                         <i class="fas fa-ellipsis-v"></i> اختر إجراء
                                     </button>
                                     <div class="dropdown-menu dropdown-menu-right">
-                                        <a href="{{ route('admin.expenses.edit', $expense->id) }}" class="dropdown-item">
+                                        <a href="{{ route('admin.expenses.edit', $expense->id) }}" class="dropdown-item" title="تعديل">
                                             <i class="fas fa-edit text-warning me-2"></i> تعديل
                                         </a>
                                         <form action="{{ route('admin.expenses.destroy', $expense->id) }}" method="POST" onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
                                             @csrf
                                             @method('DELETE')
-                                            <button type="submit" class="dropdown-item text-danger">
+                                            <button type="submit" class="dropdown-item text-danger" title="حذف">
                                                 <i class="fas fa-trash-alt me-2"></i> حذف
                                             </button>
                                         </form>

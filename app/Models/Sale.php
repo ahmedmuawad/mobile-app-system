@@ -50,4 +50,12 @@ class Sale extends Model
     {
         return $this->belongsTo(Branch::class);
     }
+public function products()
+{
+    return $this->belongsToMany(Product::class, 'sale_items')
+        ->withPivot(['quantity', 'sale_price', 'purchase_price', 'tax_value', 'tax_percentage', 'cost_at_sale'])
+        ->withTimestamps();
+}
+
+
 }

@@ -119,5 +119,12 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // ✅ اختيار الفرع من رابط GET (لما تضغط من القائمة المنسدلة)
     Route::get('change-branch/{id}', [BranchController::class, 'changeBranch'])->name('change.branch');
+    // ✅ إضافة دفعة لمشتريات
+    Route::post('purchases/{purchase}/payments', [PurchaseController::class, 'storePayment'])->name('purchases.payments.store');
 
+    // ✅ إضافة دفعة لمورد
+    Route::get('{supplier}/pay-balance', [SupplierController::class, 'payBalanceForm'])->name('payBalanceForm');
+
+    // استقبال الدفع
+    Route::post('{supplier}/pay-balance', [SupplierController::class, 'payBalance'])->name('payBalance');
 });

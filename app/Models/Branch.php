@@ -18,29 +18,44 @@ class Branch extends Model
         'is_active'
     ];
 
+    /**
+     * الشركة المالكة للفرع
+     */
     public function company()
     {
         return $this->belongsTo(Company::class);
     }
 
+    /**
+     * المستخدمين التابعين للفرع (Many to Many)
+     */
     public function users()
     {
         return $this->belongsToMany(User::class);
     }
 
     /**
-     * علاقة Many-to-Many مع المنتجات باستخدام pivot (مع السعر والمخزون والضريبة)
+     * المنتجات الموجودة في هذا الفرع (Many to Many)
+     * عبر جدول pivot: branch_product
      */
     public function products()
     {
         return $this->belongsToMany(Product::class)
             ->withPivot([
                 'price',
-                'purchase_price',     // ✅ تم إضافته
+                'purchase_price',
                 'stock',
-                'is_tax_included',    // ✅ تم إضافته
-                'tax_percentage'      // ✅ تم إضافته
+                'is_tax_included',
+                'tax_percentage'
             ])
             ->withTimestamps();
+    }
+
+    /**
+     * عمليات الشراء المرتبطة بالفرع
+     */
+    public function purchases()
+    {
+        return $this->hasMany(Purchase::class);
     }
 }

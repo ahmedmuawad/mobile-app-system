@@ -4,14 +4,49 @@
 
 @section('content')
 <div class="container-fluid">
+
+
+
+
     <div class="row">
+    <div class="col-12 col-md-4 mb-3">
+        <div class="position-relative p-3 bg-light rounded shadow-sm border-start border-4 border-success">
+            <small class="text-muted d-block mb-1">درج المبيعات</small>
+            <h5 class="m-0 text-primary">{{ number_format($sales_drawer, 2) }} جنيه</h5>
+            <i class="fas fa-cash-register position-absolute text-success-50" style="top:10px; right:10px; font-size: 1.5rem; opacity: 0.1;"></i>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4 mb-3">
+        <div class="position-relative p-3 bg-light rounded shadow-sm border-start border-4 border-primary">
+            <small class="text-muted d-block mb-1">درج الصيانة</small>
+            <h5 class="m-0 text-primary">{{ number_format($repair_drawer, 2) }} جنيه</h5>
+            <i class="fas fa-tools position-absolute text-primary-50" style="top:10px; right:10px; font-size: 1.5rem; opacity: 0.1;"></i>
+        </div>
+    </div>
+
+    <div class="col-12 col-md-4 mb-3">
+        <div class="position-relative p-3 bg-light rounded shadow-sm border-start border-4 border-warning">
+            <small class="text-muted d-block mb-1">إجمالي الدرج</small>
+            <h5 class="m-0 text-primary">{{ number_format($total_drawer, 2) }} جنيه</h5>
+            <i class="fas fa-layer-group position-absolute text-warning-50" style="top:10px; right:10px; font-size: 1.5rem; opacity: 0.1;"></i>
+        </div>
+    </div>
+</div>
+
+    <div class="row">
+
+
 
         {{-- إحصائيات اليوم --}}
         <div class="col-12 mb-3">
             <h4 class="mb-3">إحصائيات اليوم</h4>
         </div>
-        
+
         @php
+
+
+
             $cards = [
                 ['label' => 'مبيعات اليوم', 'value' => $today_sales, 'color' => 'success', 'icon' => 'fas fa-shopping-cart'],
                 ['label' => 'مصروفات اليوم', 'value' => $today_expenses, 'color' => 'danger', 'icon' => 'fas fa-dollar-sign'],
@@ -20,6 +55,8 @@
                 ['label' => 'مصنعية الصيانة والسوفتوير', 'value' => $today_repair_labor_profit, 'color' => 'warning', 'icon' => 'fas fa-tools'],
                 ['label' => 'مشتريات اليوم', 'value' => $today_purchases, 'color' => 'warning', 'icon' => 'fas fa-truck'],
                 ['label' => 'أرباح اليوم', 'value' => $today_profit, 'color' => 'secondary', 'icon' => 'fas fa-chart-line'],
+                ['label' => 'أرباح مبيعات اليوم', 'value' => $today_sales_product_profit + $today_repair_product_profit, 'color' => 'info', 'icon' => 'fas fa-money-bill'],
+
             ];
         @endphp
 

@@ -4,74 +4,99 @@
 @section('content')
 @php
     $setting = \App\Models\Setting::first();
+    $calculatedPaid = $purchase->payments->sum('amount');
+    $calculatedRemaining = $purchase->total_amount - $calculatedPaid;
 @endphp
+
 <div class="container">
 
-   
     <div class="d-print-none mb-4">
         <a href="{{ route('admin.purchases.index') }}" class="btn btn-secondary">عودة للقائمة</a>
         <button onclick="printInvoice('a4')" class="btn btn-primary">🖨️ طباعة A4</button>
         <button onclick="printInvoice('thermal')" class="btn btn-dark">🧾 طباعة حرارية</button>
     </div>
-<div id="print-area">
-     <h2> فاتورة شراء #{{ $purchase->id }}</h2>
-    <div class="card mb-4">
-        <div class="card-body">
-            <p><strong>المورد:</strong> {{ $purchase->supplier->name }}</p>
-            <p><strong>تاريخ الإنشاء:</strong> {{ $purchase->created_at->format('Y-m-d') }}</p>
-            <p><strong>إجمالي الفاتورة:</strong> {{ number_format($purchase->total_amount, 2) }}</p>
-            <p><strong>المدفوع:</strong> {{ number_format($purchase->paid_amount, 2) }}</p>
-            <p><strong>المتبقي:</strong> {{ number_format($purchase->remaining_amount, 2) }}</p>
-            <p><strong>ملاحظات:</strong> {{ $purchase->notes }}</p>
+
+    <div id="print-area">
+        <h2>فاتورة شراء #{{ $purchase->id }}</h2>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <p><strong>المورد:</strong> {{ $purchase->supplier->name }}</p>
+                <p><strong>تاريخ الإنشاء:</strong> {{ $purchase->created_at->format('Y-m-d') }}</p>
+                <p><strong>إجمالي الفاتورة:</strong> {{ number_format($purchase->total_amount, 2) }}</p>
+                <p><strong>المدفوع:</strong> {{ number_format($calculatedPaid, 2) }}</p>
+                <p><strong>المتبقي:</strong> {{ number_format($calculatedRemaining, 2) }}</p>
+                <p><strong>ملاحظات:</strong> {{ $purchase->notes ?? '-' }}</p>
+            </div>
+        </div>
+
+        <h4>العناصر</h4>
+        <table class="table table-bordered">
+            <thead>
+                <tr>
+                    <th>المنتج</th>
+                    <th>الكمية</th>
+                    <th>سعر الوحدة</th>
+                    <th>الإجمالي</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($purchase->items as $item)
+                    <tr>
+                        <td>{{ $item->product->name ?? '-' }}</td>
+                        <td>{{ $item->quantity }}</td>
+                        <td>{{ number_format($item->unit_price, 2) }}</td>
+                        <td>{{ number_format($item->subtotal, 2) }}</td>
+                    </tr>
+                @endforeach
+            </tbody>
+        </table>
+
+        <h4 class="mt-4">المدفوعات</h4>
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>المبلغ</th>
+                    <th>تاريخ الدفع</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse($purchase->payments as $payment)
+                    <tr>
+                        <td>{{ number_format($payment->amount, 2) }}</td>
+                        <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d') }}</td>
+                    </tr>
+                @empty
+                    <tr><td colspan="2" class="text-center">لا يوجد مدفوعات</td></tr>
+                @endforelse
+            </tbody>
+        </table>
+
+        {{-- نموذج إضافة دفعة يدوياً --}}
+        <div class="card mt-4">
+            <div class="card-header">إضافة دفعة جديدة</div>
+            <div class="card-body">
+                <form method="POST" action="{{ route('admin.purchases.payments.store', $purchase->id) }}">
+                    @csrf
+                    <div class="form-group mb-2">
+                        <label for="amount">المبلغ</label>
+                        <input type="number" name="amount" id="amount" step="0.01" class="form-control" required>
+                    </div>
+                    <div class="form-group mb-2">
+                        <label for="payment_date">تاريخ الدفع</label>
+                        <input type="date" name="payment_date" id="payment_date" value="{{ now()->format('Y-m-d') }}" class="form-control" required>
+                    </div>
+                    <button type="submit" class="btn btn-success mt-2">💵 إضافة دفعة</button>
+                </form>
+            </div>
         </div>
     </div>
 
-    <h4>العناصر</h4>
-    <table class="table table-bordered">
-        <thead>
-            <tr>
-                <th>المنتج</th>
-                <th>الكمية</th>
-                <th>سعر الوحدة</th>
-                <th>الإجمالي</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($purchase->items as $item)
-                <tr>
-                    <td>{{ $item->product->name ?? '-' }}</td>
-                    <td>{{ $item->quantity }}</td>
-                    <td>{{ number_format($item->unit_price, 2) }}</td>
-                    <td>{{ number_format($item->subtotal, 2) }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
-
-    <h4 class="mt-4">المدفوعات</h4>
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>المبلغ</th>
-                <th>تاريخ الدفع</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse($purchase->payments as $payment)
-                <tr>
-                    <td>{{ number_format($payment->amount, 2) }}</td>
-                    <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d') }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="2" class="text-center">لا يوجد مدفوعات</td></tr>
-            @endforelse
-        </tbody>
-    </table>
-</div>
     <a href="{{ route('admin.purchases.index') }}" class="btn btn-secondary mt-3">رجوع</a>
 
 </div>
 @endsection
+
 @push('scripts')
 <script>
 function printInvoice(mode = 'a4') {

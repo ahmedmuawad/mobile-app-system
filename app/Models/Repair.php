@@ -22,7 +22,8 @@ class Repair extends Model
         'remaining',
         'device_condition',
         'repair_type',
-        'delivery_status' // ✅ حالة تسليم الجهاز
+        'delivery_status', // ✅ حالة تسليم الجهاز
+        'branch_id'  // ✅ معرف الفرع
     ];
 
     // ✅ العلاقة مع العميل
@@ -97,4 +98,7 @@ class Repair extends Model
     {
         return $this->belongsTo(Branch::class);
     }
+
 }
+
+

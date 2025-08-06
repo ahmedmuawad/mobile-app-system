@@ -5,15 +5,18 @@
 @section('content')
 <div class="container-fluid">
     <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
-            <h3 class="card-title mb-0">🧾 تفاصيل فاتورة صيانة #{{ $repair->id }}</h3>
-            <div class="d-print-none">
-                <a href="{{ route('admin.repairs.index') }}" class="btn btn-secondary btn-sm">↩️ رجوع</a>
-                <a href="{{ route('admin.repairs.edit', $repair->id) }}" class="btn btn-warning btn-sm">✏️ تعديل</a>
-                <button onclick="printReceipt('a4')" class="btn btn-primary btn-sm">🖨️ طباعة A4</button>
-                <button onclick="printReceipt('thermal')" class="btn btn-dark btn-sm">🧾 طباعة حرارية</button>
-            </div>
-        </div>
+        <div class="card-header d-flex flex-wrap justify-content-between align-items-center">
+    <h3 class="card-title mb-2 mb-md-0 text-center text-md-left w-100 w-md-auto">
+        🧾 تفاصيل فاتورة صيانة #{{ $repair->id }}
+    </h3>
+
+    <div class="d-print-none d-flex flex-wrap justify-content-center justify-content-md-end w-100 w-md-auto">
+        <a href="{{ route('admin.repairs.index') }}" class="btn btn-secondary btn-sm m-1">↩️ رجوع</a>
+        <a href="{{ route('admin.repairs.edit', $repair->id) }}" class="btn btn-warning btn-sm m-1">✏️ تعديل</a>
+        <button onclick="printReceipt('a4')" class="btn btn-primary btn-sm m-1">🖨️ طباعة A4</button>
+        <button onclick="printReceipt('thermal')" class="btn btn-dark btn-sm m-1">🧾 طباعة حرارية</button>
+    </div>
+</div>
 
         <div class="card-body">
 

@@ -38,73 +38,74 @@
             <label>أو اسم العميل يدويًا:</label>
             <input type="text" name="customer_name" class="form-control" value="{{ old('customer_name', $sale->customer_name) }}">
         </div>
-
         <!-- الأصناف -->
-        <h4>الأصناف المباعة</h4>
-        <table class="table table-bordered" id="items-table">
-            <thead>
-                <tr>
-                    <th width="30%">المنتج</th>
-                    <th>الكمية</th>
-                    <th>السعر قبل الضريبة</th>
-                    <th>الضريبة المضافة</th>
-                    <th>السعر بعد الضريبة</th>
-                    <th>نوع السعر</th>
-                    <th>إجمالي الصنف</th>
-                    <th>الإجراء</th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($sale->saleItems as $index => $item)
-                    @php
-                        $product = collect($branchProducts)->firstWhere('id', $item->product_id);
-                        $taxRate = $product['tax_percentage'] ?? 0;
-                        $taxIncluded = $product['tax_included'] ?? 0;
-                        $base = $item->sale_price;
-                        $tax = 0;
-                        $final = $item->sale_price;
-                        $taxType = 'بدون ضريبة';
-                        if ($taxRate > 0) {
-                            if ($taxIncluded) {
-                                $base = $item->sale_price / (1 + $taxRate / 100);
-                                $tax = $item->sale_price - $base;
-                                $taxType = "شامل ($taxRate%)";
-                            } else {
-                                $tax = $base * ($taxRate / 100);
-                                $final = $base + $tax;
-                                $taxType = "غير شامل ($taxRate%)";
-                            }
-                        }
-                    @endphp
+        <h4 class="mt-4">الأصناف المباعة</h4>
+        <div class="table-responsive">
+            <table class="table table-bordered" id="items-table">
+                <thead>
                     <tr>
-                        <td class="product-cell">
-                            <select name="items[{{ $index }}][product_id]" class="form-control product-select" data-index="{{ $index }}">
-                                <option value="">-- اختر منتج --</option>
-                                @foreach($branchProducts as $prod)
-                                    <option value="{{ $prod['id'] }}"
-                                        data-price="{{ $prod['price'] }}"
-                                        data-barcode="{{ $prod['barcode'] }}"
-                                        data-category="{{ $prod['category_id'] }}"
-                                        data-brand="{{ $prod['brand_id'] }}"
-                                        data-tax-included="{{ $prod['tax_included'] }}"
-                                        data-tax-percentage="{{ $prod['tax_percentage'] }}"
-                                        {{ $item->product_id == $prod['id'] ? 'selected' : '' }}>
-                                        {{ $prod['name'] }}
-                                    </option>
-                                @endforeach
-                            </select>
-                        </td>
-                        <td><input type="number" name="items[{{ $index }}][quantity]" class="form-control quantity-input" value="{{ $item->quantity }}" min="1"></td>
-                        <td><input type="number" class="form-control base-price" value="{{ round($base,2) }}" readonly><input type="hidden" name="items[{{ $index }}][sale_price]" class="sale-price-hidden" value="{{ round($final,2) }}"></td>
-                        <td><input type="number" class="form-control tax-value" value="{{ round($tax,2) }}" readonly></td>
-                        <td><input type="number" class="form-control final-price" value="{{ round($final,2) }}" readonly></td>
-                        <td><input type="text" class="form-control tax-type" value="{{ $taxType }}" readonly></td>
-                        <td><input type="number" class="form-control item-total" readonly></td>
-                        <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
+                        <th width="30%">المنتج</th>
+                        <th>الكمية</th>
+                        <th>السعر قبل الضريبة</th>
+                        <th>الضريبة المضافة</th>
+                        <th>السعر بعد الضريبة</th>
+                        <th>نوع السعر</th>
+                        <th>إجمالي الصنف</th>
+                        <th>الإجراء</th>
                     </tr>
-                @endforeach
-            </tbody>
-        </table>
+                </thead>
+                <tbody>
+                    @foreach($sale->saleItems as $index => $item)
+                        @php
+                            $product = collect($branchProducts)->firstWhere('id', $item->product_id);
+                            $taxRate = $product['tax_percentage'] ?? 0;
+                            $taxIncluded = $product['tax_included'] ?? 0;
+                            $base = $item->sale_price;
+                            $tax = 0;
+                            $final = $item->sale_price;
+                            $taxType = 'بدون ضريبة';
+                            if ($taxRate > 0) {
+                                if ($taxIncluded) {
+                                    $base = $item->sale_price / (1 + $taxRate / 100);
+                                    $tax = $item->sale_price - $base;
+                                    $taxType = "شامل ($taxRate%)";
+                                } else {
+                                    $tax = $base * ($taxRate / 100);
+                                    $final = $base + $tax;
+                                    $taxType = "غير شامل ($taxRate%)";
+                                }
+                            }
+                        @endphp
+                        <tr>
+                            <td class="product-cell">
+                                <select name="items[{{ $index }}][product_id]" class="form-control product-select" data-index="{{ $index }}">
+                                    <option value="">-- اختر منتج --</option>
+                                    @foreach($branchProducts as $prod)
+                                        <option value="{{ $prod['id'] }}"
+                                            data-price="{{ $prod['price'] }}"
+                                            data-barcode="{{ $prod['barcode'] }}"
+                                            data-category="{{ $prod['category_id'] }}"
+                                            data-brand="{{ $prod['brand_id'] }}"
+                                            data-tax-included="{{ $prod['tax_included'] }}"
+                                            data-tax-percentage="{{ $prod['tax_percentage'] }}"
+                                            {{ $item->product_id == $prod['id'] ? 'selected' : '' }}>
+                                            {{ $prod['name'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </td>
+                            <td><input type="number" name="items[{{ $index }}][quantity]" class="form-control quantity-input" value="{{ $item->quantity }}" min="1"></td>
+                            <td><input type="number" class="form-control base-price" value="{{ round($base,2) }}" readonly><input type="hidden" name="items[{{ $index }}][sale_price]" class="sale-price-hidden" value="{{ round($final,2) }}"></td>
+                            <td><input type="number" class="form-control tax-value" value="{{ round($tax,2) }}" readonly></td>
+                            <td><input type="number" class="form-control final-price" value="{{ round($final,2) }}" readonly></td>
+                            <td><input type="text" class="form-control tax-type" value="{{ $taxType }}" readonly></td>
+                            <td><input type="number" class="form-control item-total" readonly></td>
+                            <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
         <button type="button" class="btn btn-success mb-3" id="add-row">إضافة صنف</button>
 
         <!-- الخصم -->
@@ -162,7 +163,8 @@
     </form>
 
     {{-- جدول ملخص الأصناف --}}
-    <table class="table table-bordered text-center mt-4">
+    <div class="table-responsive">
+        <table class="table table-bordered text-center mt-4">
         <thead>
             <tr>
                 <th>المنتج</th>
@@ -203,6 +205,7 @@
             @endforeach
         </tbody>
     </table>
+    </div>
 
     {{-- ملخص الفاتورة --}}
     <h5 class="mt-4">ملخص الفاتورة:</h5>

@@ -14,10 +14,19 @@
 
 <div class="container-fluid" id="invoice-content">
     <div class="d-print-none mb-4">
-        <a href="{{ route('admin.sales.index') }}" class="btn btn-secondary">عودة للقائمة</a>
-        <button onclick="printInvoice('a4')" class="btn btn-primary">🖨️ طباعة A4</button>
-        <button onclick="printInvoice('thermal')" class="btn btn-dark">🧾 طباعة حرارية</button>
+    <div class="row">
+        <div class="col-md-4 mb-2">
+            <a href="{{ route('admin.sales.index') }}" class="btn btn-secondary btn-block w-100">عودة للقائمة</a>
+        </div>
+        <div class="col-md-4 mb-2">
+            <button onclick="printInvoice('a4')" class="btn btn-primary btn-block w-100">🖨️ طباعة A4</button>
+        </div>
+        <div class="col-md-4 mb-2">
+            <button onclick="printInvoice('thermal')" class="btn btn-dark btn-block w-100">🧾 طباعة حرارية</button>
+        </div>
     </div>
+</div>
+
 
     <div id="print-area">
         <!-- رأس الفاتورة -->
@@ -30,40 +39,42 @@
         </div>
 
         <!-- بيانات الفاتورة -->
-        <table class="table table-bordered">
-            <tr class="no-print-col">
-                <th>العميل</th>
-                <td>{{ $sale->customer?->name ?? '-' }}</td>
-            </tr>
-            <tr class="no-print-col">
-                <th>اسم العميل (يدوي)</th>
-                <td>{{ $sale->customer_name ?? '-' }}</td>
-            </tr>
-
-            @if($sale->discount > 0)
+        <div class="table-responsive">
+            <table class="table table-bordered">
                 <tr class="no-print-col">
-                    <th>إجمالي بدون خصم</th>
-                    <td>{{ number_format($sale->total + $sale->discount, 2) }} جنيه</td>
+                    <th>العميل</th>
+                    <td>{{ $sale->customer?->name ?? '-' }}</td>
                 </tr>
                 <tr class="no-print-col">
-                    <th>الخصم</th>
-                    <td>{{ number_format($sale->discount, 2) }} جنيه</td>
+                    <th>اسم العميل (يدوي)</th>
+                    <td>{{ $sale->customer_name ?? '-' }}</td>
                 </tr>
-            @endif
 
-            <tr>
-                <th class="no-print-col">الإجمالي النهائي</th>
-                <td class="no-print-col">{{ number_format($sale->total, 2) }} جنيه</td>
-            </tr>
+                @if($sale->discount > 0)
+                    <tr class="no-print-col">
+                        <th>إجمالي بدون خصم</th>
+                        <td>{{ number_format($sale->total + $sale->discount, 2) }} جنيه</td>
+                    </tr>
+                    <tr class="no-print-col">
+                        <th>الخصم</th>
+                        <td>{{ number_format($sale->discount, 2) }} جنيه</td>
+                    </tr>
+                @endif
 
-            <tr>
-                <th>تاريخ الإنشاء</th>
-                <td>{{ $sale->created_at->format('Y-m-d H:i') }}</td>
-            </tr>
-        </table>
+                <tr>
+                    <th class="no-print-col">الإجمالي النهائي</th>
+                    <td class="no-print-col">{{ number_format($sale->total, 2) }} جنيه</td>
+                </tr>
 
+                <tr>
+                    <th>تاريخ الإنشاء</th>
+                    <td>{{ $sale->created_at->format('Y-m-d H:i') }}</td>
+                </tr>
+            </table>
+        </div>
         {{-- تفاصيل الأصناف --}}
         <h4 class="mt-4">تفاصيل الأصناف:</h4>
+    <div class="table-responsive">
         <table class="table table-striped table-bordered text-center">
             <thead>
                 <tr>
@@ -111,6 +122,9 @@
                 </tr>
             </tfoot>
         </table>
+    </div>
+
+        {{-- ملخص الضرائب --}}
 
         {{-- ملخص الفاتورة --}}
         <h4 class="mt-4">ملخص الفاتورة:</h4>

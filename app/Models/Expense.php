@@ -14,8 +14,15 @@ class Expense extends Model
         'description',
         'amount',
         'expense_date',
-        'expensable_id', 'expensable_type'
+        'branch_id',
+        'expensable_id',
+        'expensable_type',
     ];
+
+    public function branch()
+    {
+        return $this->belongsTo(Branch::class);
+    }
 
     protected static function boot()
     {

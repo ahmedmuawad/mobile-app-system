@@ -71,9 +71,16 @@
                                                 <i class="fas fa-trash-alt me-2"></i> حذف
                                             </button>
                                         </form>
+
+                                        @if($balance < 0)
+                                            <a href="{{ route('admin.payBalanceForm', $supplier->id) }}" class="dropdown-item text-success">
+                                                <i class="fas fa-credit-card me-2"></i> سداد المبلغ المستحق
+                                            </a>
+                                        @endif
                                     </div>
                                 </div>
                             </td>
+
                         </tr>
                     @empty
                         <tr>
