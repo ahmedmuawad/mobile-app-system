@@ -13,7 +13,7 @@ class Package extends Model
 
     public function modules()
     {
-        return $this->belongsToMany(Module::class, "module_package");
+    return $this->belongsToMany(\App\Models\Module::class, 'module_package', 'package_id', 'module_id');
     }
 
     public function companies()

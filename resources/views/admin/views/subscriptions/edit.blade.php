@@ -46,7 +46,8 @@
 
             <div class="form-group">
                 <label for="starts_at">تاريخ البداية</label>
-                <input type="date" name="starts_at" id="starts_at" class="form-control @error('starts_at') is-invalid @enderror" value="{{ old('starts_at', $subscription->starts_at->format('Y-m-d')) }}" required>
+                <input type="date" name="starts_at" id="starts_at" class="form-control @error('starts_at') is-invalid @enderror" value="{{ old('starts_at') }}" required>
+
                 @error('starts_at')
                     <span class="invalid-feedback">{{ $message }}</span>
                 @enderror
@@ -54,7 +55,7 @@
 
             <div class="form-group">
                 <label for="ends_at">تاريخ النهاية</label>
-                <input type="date" name="ends_at" id="ends_at" class="form-control @error('ends_at') is-invalid @enderror" value="{{ old('ends_at', $subscription->ends_at->format('Y-m-d')) }}" required>
+                <input type="date" name="ends_at" id="ends_at" class="form-control @error('ends_at') is-invalid @enderror" value="{{ old('ends_at') }}" required>
                 @error('ends_at')
                     <span class="invalid-feedback">{{ $message }}</span>
                 @enderror
