@@ -11,6 +11,7 @@ use App\Models\CustomerPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Models\SalePayment;
+use App\Services\StockService;
 
 class SaleController extends Controller
 {
@@ -137,9 +138,19 @@ class SaleController extends Controller
                     'purchase_price' => $purchase_price,
                 ]);
 
-                $branch->products()->updateExistingPivot($item['product_id'], [
-                    'stock' => $branchProduct->pivot->stock - $quantity
-                ]);
+                // خصم المخزون وتسجيل الحركة
+                StockService::decreaseStock(
+                    $sale->branch_id,
+                    $product->id,
+                    $quantity,
+                    'sale',
+                    [
+                        'reference_type' => Sale::class,
+                        'reference_id' => $sale->id,
+                        'user_id' => auth()->id(),
+                        'note' => 'Sale #' . $sale->id,
+                    ]
+                );
             }
 
             $discount = $request->input('discount', 0);
@@ -148,7 +159,6 @@ class SaleController extends Controller
             $sale->discount = $discount;
             $sale->profit = $total_profit;
 
-            // تسجيل طرق الدفع
             $totalPaid = 0;
             if (!empty($request->payments)) {
                 foreach ($request->payments as $p) {
@@ -209,7 +219,6 @@ class SaleController extends Controller
         $products = Product::all();
         $customers = Customer::all();
 
-        // جلب الفرع الحالي من السيشن
         $branch_id = session('current_branch_id');
         $branchProducts = [];
 
@@ -261,16 +270,19 @@ class SaleController extends Controller
             $sale = Sale::with('saleItems', 'customerPayments')->findOrFail($id);
 
             // استرجاع المخزون القديم
-            $branch = Branch::find($sale->branch_id);
             foreach ($sale->saleItems as $oldItem) {
-                if ($branch) {
-                    $branchProduct = $branch->products()->where('products.id', $oldItem->product_id)->first();
-                    if ($branchProduct) {
-                        $branch->products()->updateExistingPivot($oldItem->product_id, [
-                            'stock' => $branchProduct->pivot->stock + $oldItem->quantity
-                        ]);
-                    }
-                }
+                StockService::increaseStock(
+                    $sale->branch_id,
+                    $oldItem->product_id,
+                    $oldItem->quantity,
+                    'sale_update_restore',
+                    [
+                        'reference_type' => Sale::class,
+                        'reference_id' => $sale->id,
+                        'user_id' => auth()->id(),
+                        'note' => 'Restore stock before update sale #' . $sale->id,
+                    ]
+                );
             }
             $sale->saleItems()->delete();
 
@@ -289,7 +301,6 @@ class SaleController extends Controller
                     return redirect()->back()->with('error', 'المنتج غير موجود في الفرع الحالي');
                 }
 
-                // تأكد أن القيم رقمية وليست null
                 $taxRate = is_numeric($branchProduct->pivot->tax_percentage) ? floatval($branchProduct->pivot->tax_percentage) : 0;
                 $quantity = $item['quantity'];
                 $isTaxIncluded = $branchProduct->pivot->is_tax_included ? 1 : 0;
@@ -310,7 +321,6 @@ class SaleController extends Controller
                 $total += $subtotal;
                 $total_profit += $profit;
 
-                // هنا نضمن عدم حفظ null أبداً
                 SaleItem::create([
                     'sale_id' => $sale->id,
                     'product_id' => $product->id,
@@ -323,9 +333,18 @@ class SaleController extends Controller
                     'purchase_price' => $purchase_price,
                 ]);
 
-                $branch->products()->updateExistingPivot($item['product_id'], [
-                    'stock' => $branchProduct->pivot->stock - $quantity
-                ]);
+                StockService::decreaseStock(
+                    $sale->branch_id,
+                    $product->id,
+                    $quantity,
+                    'sale_update_deduct',
+                    [
+                        'reference_type' => Sale::class,
+                        'reference_id' => $sale->id,
+                        'user_id' => auth()->id(),
+                        'note' => 'Update sale #' . $sale->id,
+                    ]
+                );
             }
 
             $discount = $request->input('discount', 0);
@@ -341,7 +360,6 @@ class SaleController extends Controller
             $sale->remaining = $finalTotal - $initialPayment;
             $sale->save();
 
-            // حذف الدفعات القديمة (اختياري حسب منطقك)
             $sale->customerPayments()->delete();
 
             if ($initialPayment > 0 && $sale->customer_id) {
@@ -353,7 +371,6 @@ class SaleController extends Controller
                 ]);
             }
 
-            // إضافة دفعة جديدة (اختياري)
             $newPayment = floatval($request->input('new_payment', 0));
             if ($newPayment > 0 && $sale->customer_id) {
                 CustomerPayment::create([
@@ -379,6 +396,24 @@ class SaleController extends Controller
     public function destroy($id)
     {
         $sale = Sale::findOrFail($id);
+
+        // استرجاع المخزون قبل الحذف
+        foreach ($sale->saleItems as $item) {
+            StockService::increaseStock(
+                $sale->branch_id,
+                $item->product_id,
+                $item->quantity,
+                'sale_delete_restore',
+                [
+                    'reference_type' => Sale::class,
+                    'reference_id' => $sale->id,
+                    'user_id' => auth()->id(),
+                    'note' => 'Restore stock on delete sale #' . $sale->id,
+                ]
+            );
+        }
+
+        $sale->saleItems()->delete();
         $sale->delete();
         return redirect()->route('admin.sales.index')->with('success', 'تم حذف الفاتورة بنجاح.');
     }
@@ -390,16 +425,19 @@ class SaleController extends Controller
             foreach ($ids as $id) {
                 $sale = Sale::find($id);
                 if ($sale) {
-                    $branch = Branch::find($sale->branch_id);
                     foreach ($sale->saleItems as $item) {
-                        if ($branch) {
-                            $branchProduct = $branch->products()->where('products.id', $item->product_id)->first();
-                            if ($branchProduct) {
-                                $branch->products()->updateExistingPivot($item->product_id, [
-                                    'stock' => $branchProduct->pivot->stock + $item->quantity
-                                ]);
-                            }
-                        }
+                        StockService::increaseStock(
+                            $sale->branch_id,
+                            $item->product_id,
+                            $item->quantity,
+                            'sale_bulk_delete_restore',
+                            [
+                                'reference_type' => Sale::class,
+                                'reference_id' => $sale->id,
+                                'user_id' => auth()->id(),
+                                'note' => 'Restore stock on bulk delete sale #' . $sale->id,
+                            ]
+                        );
                     }
                     $sale->saleItems()->delete();
                     $sale->customerPayments()->delete();

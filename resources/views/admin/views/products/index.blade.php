@@ -83,7 +83,8 @@
                             <th>الماركة</th>
                             <th>سعر الشراء</th>
                             <th>سعر البيع</th>
-                            <th>الكمية</th>
+                            <th>المخزون</th>
+                            <th>التنبيه</th>
                             <th>الإجراءات</th>
                         </tr>
                     </thead>
@@ -91,12 +92,12 @@
                         @foreach ($products as $product)
                             @php
                                 $currentBranchId = session('current_branch_id');
-                                $branchData = $product->branches->firstWhere('id', $currentBranchId);
-                                $stock = $branchData && $branchData->pivot ? $branchData->pivot->stock : $product->stock;
                                 $salePrice = $product->getFinalPriceForBranch($currentBranchId);
                             @endphp
                             <tr>
-                                <td><input type="checkbox" class="product-checkbox" name="selected_products[]" value="{{ $product->id }}"></td>
+                                <td>
+                                    <input type="checkbox" class="product-checkbox" name="selected_products[]" value="{{ $product->id }}">
+                                </td>
                                 <td>
                                     @if($product->image)
                                         <img src="{{ asset('storage/' . $product->image) }}"
@@ -112,7 +113,46 @@
                                 <td>{{ $product->brand->name ?? '-' }}</td>
                                 <td>{{ number_format($product->purchase_price, 2) }} ج.م</td>
                                 <td>{{ number_format($salePrice, 2) }} ج.م</td>
-                                <td>{{ $stock }}</td>
+                                <td>
+                                    @if($currentBranchId)
+                                        {{-- عرض مخزون الفرع الحالي --}}
+                                        {{ $product->branches->firstWhere('id', $currentBranchId)?->pivot->stock ?? 0 }}
+                                    @else
+                                        {{-- عرض مخزون كل الفروع --}}
+                                        @forelse($product->branches as $branch)
+                                            <div>{{ $branch->name }}: {{ $branch->pivot->stock ?? 0 }}</div>
+                                        @empty
+                                            0
+                                        @endforelse
+                                    @endif
+                                </td>
+                                <td>
+    @if($currentBranchId)
+        @php
+            $branchPivot = $product->branches->firstWhere('id', $currentBranchId)?->pivot;
+            $lowStock = $branchPivot && $branchPivot->stock <= $branchPivot->low_stock_threshold;
+        @endphp
+        @if($lowStock)
+            <span title="المخزون منخفض" style="color: red;">
+                <i class="fa fa-exclamation-triangle"></i>
+            </span>
+        @endif
+    @else
+        {{-- لو مفيش فرع محدد، نتحقق لكل الفروع --}}
+        @foreach($product->branches as $branch)
+            @php
+                $lowStock = $branch->pivot->stock <= $branch->pivot->low_stock_threshold;
+            @endphp
+            @if($lowStock)
+                <span title="المخزون منخفض في {{ $branch->name }}" style="color: red;">
+                    <i class="fa fa-exclamation-triangle"></i>
+                </span>
+                @break
+            @endif
+        @endforeach
+    @endif
+</td>
+
                                 <td>
                                     <div class="btn-group">
                                         <button type="button" class="btn btn-sm btn-primary dropdown-toggle"
@@ -159,7 +199,6 @@
     </div>
 </div>
 
-{{-- فورم حذف فردي --}}
 <form id="delete-form" method="POST" style="display: none;">
     @csrf
     @method('DELETE')

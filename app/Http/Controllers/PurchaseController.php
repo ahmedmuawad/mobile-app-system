@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\DB;
 use App\Models\PurchasePayment;
 use App\Models\Branch;
 use App\Models\Expense;
-
+use App\Services\StockService;
 
 class PurchaseController extends Controller
 {
@@ -32,7 +32,7 @@ class PurchaseController extends Controller
     public function create()
     {
         $suppliers = Supplier::all();
-        $products  = Product::all(); // يمكنك تصفية المنتجات حسب الفرع هنا إذا كانت مرتبطة بفروع
+        $products  = Product::all();
         return view('admin.views.purchases.create', compact('suppliers', 'products'));
     }
 
@@ -51,7 +51,6 @@ class PurchaseController extends Controller
 
         try {
             $branch_id = session('current_branch_id');
-            $branch    = Branch::findOrFail($branch_id);
 
             $purchase = Purchase::create([
                 'supplier_id'     => $request->supplier_id,
@@ -65,39 +64,23 @@ class PurchaseController extends Controller
             $totalAmount = 0;
 
             foreach ($request->items as $item) {
-                $productId = $item['product_id'];
-                $qty       = $item['quantity'];
-                $price     = $item['purchase_price'];
+                $product = Product::findOrFail($item['product_id']);
+                $qty     = $item['quantity'];
+                $price   = $item['purchase_price'];
 
-                // التحقق من وجود المنتج
-                $product = Product::findOrFail($productId);
+                // تحديث المخزون من خلال الخدمة
+                StockService::increaseStock(
+                    $product->id,
+                    $branch_id,
+                    $qty,
+                    'Purchase',
+                    $purchase->id,
+                    $price
+                );
 
-                // نحاول نجيب البيانات من الجدول الوسيط (branch_product)
-                $pivotData = $branch->products()->where('product_id', $productId)->first();
-
-                $oldStock = 0;
-                $oldCost  = 0.00;
-
-                if ($pivotData) {
-                    $oldStock = $pivotData->pivot->stock ?? 0;
-                    $oldCost  = $pivotData->pivot->purchase_price ?? 0.00;
-                }
-
-                $newStock = $oldStock + $qty;
-                $avgCost  = ($oldStock * $oldCost + $qty * $price) / ($newStock ?: 1);
-
-                // تحديث أو إرفاق السطر في الجدول الوسيط
-                $branch->products()->syncWithoutDetaching([
-                    $productId => [
-                        'stock'          => $newStock,
-                        'purchase_price' => $avgCost,
-                    ]
-                ]);
-
-                // حفظ بيانات الصنف في الفاتورة
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
-                    'product_id'  => $productId,
+                    'product_id'  => $product->id,
                     'quantity'    => $qty,
                     'unit_price'  => $price,
                     'subtotal'    => $qty * $price,
@@ -139,7 +122,6 @@ class PurchaseController extends Controller
         }
     }
 
-
     public function edit(Purchase $purchase)
     {
         $currentBranchId = session('current_branch_id');
@@ -178,52 +160,38 @@ class PurchaseController extends Controller
                 abort(403, 'لا يمكنك تعديل فواتير من فرع آخر.');
             }
 
-            $branch = Branch::findOrFail($branchId);
-
-            // استرجاع المخزون القديم وتحديثه
+            // استرجاع المخزون القديم
             foreach ($purchase->items as $oldItem) {
-                $productId = $oldItem->product_id;
-                $quantity  = $oldItem->quantity;
-
-                $productInBranch = $branch->products()->where('product_id', $productId)->first();
-                if ($productInBranch) {
-                    $oldStock = $productInBranch->pivot->stock;
-                    $branch->products()->updateExistingPivot($productId, [
-                        'stock' => max(0, $oldStock - $quantity)
-                    ]);
-                }
+                StockService::decreaseStock(
+                    $oldItem->product_id,
+                    $branchId,
+                    $oldItem->quantity,
+                    'PurchaseUpdateRevert',
+                    $purchase->id
+                );
             }
 
-            // حذف العناصر القديمة
             PurchaseItem::where('purchase_id', $purchase->id)->delete();
 
             $totalAmount = 0;
 
             foreach ($request->items as $item) {
-                $productId = $item['product_id'];
-                $qty       = $item['quantity'];
-                $price     = $item['purchase_price'];
+                $product = Product::findOrFail($item['product_id']);
+                $qty     = $item['quantity'];
+                $price   = $item['purchase_price'];
 
-                $pivot = $branch->products()->where('product_id', $productId)->first();
+                StockService::increaseStock(
+                    $product->id,
+                    $branchId,
+                    $qty,
+                    'PurchaseUpdate',
+                    $purchase->id,
+                    $price
+                );
 
-                $oldStock = $pivot ? $pivot->pivot->stock : 0;
-                $oldCost  = $pivot ? $pivot->pivot->purchase_price : 0;
-
-                $newStock = $oldStock + $qty;
-                $avgCost  = ($oldStock * $oldCost + $qty * $price) / ($newStock ?: 1);
-
-                // تحديث أو إنشاء السطر في الجدول الوسيط
-                $branch->products()->syncWithoutDetaching([
-                    $productId => [
-                        'stock'          => $newStock,
-                        'purchase_price' => $avgCost,
-                    ]
-                ]);
-
-                // إضافة العنصر للفاتورة
                 PurchaseItem::create([
                     'purchase_id' => $purchase->id,
-                    'product_id'  => $productId,
+                    'product_id'  => $product->id,
                     'quantity'    => $qty,
                     'unit_price'  => $price,
                     'subtotal'    => $qty * $price,
@@ -232,14 +200,12 @@ class PurchaseController extends Controller
                 $totalAmount += $qty * $price;
             }
 
-            // تحديث بيانات الفاتورة
             $purchase->update([
-                'supplier_id'      => $request->supplier_id,
-                'notes'            => $request->notes,
-                'total_amount'     => $totalAmount,
+                'supplier_id'  => $request->supplier_id,
+                'notes'        => $request->notes,
+                'total_amount' => $totalAmount,
             ]);
 
-            // إضافة مدفوعات جديدة لو فيه
             if ($request->has('new_payments')) {
                 foreach ($request->new_payments as $paymentData) {
                     PurchasePayment::create([
@@ -248,7 +214,6 @@ class PurchaseController extends Controller
                         'payment_date' => $paymentData['payment_date'],
                     ]);
 
-                    // ممكن لو عايز تضيف Expense جديد لكل دفعه:
                     Expense::create([
                         'name'         => 'دفع كاش للمورد: ' . $purchase->supplier->name,
                         'description'  => 'فاتورة شراء رقم #' . $purchase->id,
@@ -258,7 +223,6 @@ class PurchaseController extends Controller
                 }
             }
 
-            // تحديث paid_amount و remaining_amount بعد كل شيء
             $paidAmount = $purchase->payments()->sum('amount');
             $remaining  = $totalAmount - $paidAmount;
 
@@ -276,7 +240,6 @@ class PurchaseController extends Controller
         }
     }
 
-
     public function destroy(Purchase $purchase)
     {
         $currentBranchId = session('current_branch_id');
@@ -288,9 +251,13 @@ class PurchaseController extends Controller
 
         try {
             foreach ($purchase->items as $item) {
-                $branch->products()->updateExistingPivot($item->product_id, [
-                    'stock' => DB::raw('stock - ' . $item->quantity)
-                ]);
+                StockService::decreaseStock(
+                    $item->product_id,
+                    $purchase->branch_id,
+                    $item->quantity,
+                    'PurchaseDelete',
+                    $purchase->id
+                );
             }
 
             $purchase->items()->delete();
@@ -315,69 +282,62 @@ class PurchaseController extends Controller
         $purchase->load(['supplier', 'items.product', 'payments']);
         return view('admin.views.purchases.show', compact('purchase'));
     }
-    // storePayment
 
-public function storePayment(Request $request, $purchaseId)
-{
-    $purchase = Purchase::findOrFail($purchaseId);
-    $supplier = $purchase->supplier;
+    public function storePayment(Request $request, $purchaseId)
+    {
+        $purchase = Purchase::findOrFail($purchaseId);
+        $supplier = $purchase->supplier;
 
-    // التحقق من صحة البيانات والمدفوع لا يتجاوز المتبقي
-    $request->validate([
-        'amount' => [
-            'required',
-            'numeric',
-            'min:0.01',
-            function ($attribute, $value, $fail) use ($purchase) {
-                $remaining = $purchase->remaining_amount;
-                if ($value > $remaining) {
-                    $fail('المبلغ المدفوع لا يمكن أن يتجاوز المبلغ المتبقي.');
-                }
-            },
-        ],
-        'payment_date' => 'required|date',
-    ]);
-
-    DB::beginTransaction();
-    try {
-        // حفظ الدفعة
-        PurchasePayment::create([
-            'purchase_id'  => $purchase->id,
-            'amount'       => round($request->amount, 2),
-            'payment_date' => $request->payment_date,
+        $request->validate([
+            'amount' => [
+                'required',
+                'numeric',
+                'min:0.01',
+                function ($attribute, $value, $fail) use ($purchase) {
+                    $remaining = $purchase->remaining_amount;
+                    if ($value > $remaining) {
+                        $fail('المبلغ المدفوع لا يمكن أن يتجاوز المبلغ المتبقي.');
+                    }
+                },
+            ],
+            'payment_date' => 'required|date',
         ]);
 
-        // إعادة حساب المبالغ
-        $paidAmount = $purchase->payments()->sum('amount');
-        $remaining  = max($purchase->total_amount - $paidAmount, 0);
+        DB::beginTransaction();
+        try {
+            PurchasePayment::create([
+                'purchase_id'  => $purchase->id,
+                'amount'       => round($request->amount, 2),
+                'payment_date' => $request->payment_date,
+            ]);
 
-        $purchase->update([
-            'paid_amount'      => $paidAmount,
-            'remaining_amount' => $remaining,
-        ]);
+            $paidAmount = $purchase->payments()->sum('amount');
+            $remaining  = max($purchase->total_amount - $paidAmount, 0);
 
-        DB::commit();
+            $purchase->update([
+                'paid_amount'      => $paidAmount,
+                'remaining_amount' => $remaining,
+            ]);
 
-        // ✅ حل مشكلة Undefined variable $payments
-        if (str_contains(url()->previous(), 'suppliers')) {
-            $balance = $supplier->balance;
+            DB::commit();
 
-            $payments = \App\Models\PurchasePayment::whereIn(
-                'purchase_id',
-                $supplier->purchases()->pluck('id')
-            )->orderByDesc('payment_date')->get();
+            if (str_contains(url()->previous(), 'suppliers')) {
+                $balance = $supplier->balance;
 
-            return view('admin.suppliers.pay_balance', compact('supplier', 'balance', 'payments'))
-                ->with('success', '✅ تم إضافة الدفعة بنجاح.');
+                $payments = \App\Models\PurchasePayment::whereIn(
+                    'purchase_id',
+                    $supplier->purchases()->pluck('id')
+                )->orderByDesc('payment_date')->get();
+
+                return view('admin.suppliers.pay_balance', compact('supplier', 'balance', 'payments'))
+                    ->with('success', '✅ تم إضافة الدفعة بنجاح.');
+            }
+
+            return redirect()->back()->with('success', '✅ تم إضافة الدفعة بنجاح.');
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return redirect()->back()->with('error', '❌ حدث خطأ أثناء الإضافة: ' . $e->getMessage());
         }
-
-        // 🔄 الحالة العادية: مشتريات → إعادة توجيه للصفحة السابقة
-        return redirect()->back()->with('success', '✅ تم إضافة الدفعة بنجاح.');
-
-    } catch (\Exception $e) {
-        DB::rollBack();
-        return redirect()->back()->with('error', '❌ حدث خطأ أثناء الإضافة: ' . $e->getMessage());
     }
-}
-
 }

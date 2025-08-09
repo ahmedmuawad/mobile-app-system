@@ -4,7 +4,8 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\DB;
+use App\Models\StockAlert;
+use App\Models\Branch;
 
 class Product extends Model
 {
@@ -12,24 +13,42 @@ class Product extends Model
 
     protected $fillable = [
         'company_id',
-        //'branch_id',  // تم التعليق لأنها في العلاقة وليس في المنتج مباشرة
         'name',
         'image',
         'purchase_price',
         'sale_price',
         'barcode',
-        'stock',
+        'stock', // مخزون عام (في حالة منتج بدون فروع)
         'category_id',
         'brand_id',
         'is_tax_included',
         'tax_percentage',
     ];
 
-    protected $appends = ['final_price'];
+    protected $appends = ['final_price', 'low_stock_alert'];
 
-    public function company()
+    /*========================
+        العلاقات
+    ========================*/
+
+    public function branches()
     {
-        return $this->belongsTo(Company::class);
+        return $this->belongsToMany(Branch::class, 'branch_product')
+                    ->withPivot([
+                        'price',
+                        'purchase_price',
+                        'stock',
+                        'is_tax_included',
+                        'tax_percentage',
+                        'low_stock_threshold' // ✅ أضفناها هنا
+
+                    ])
+                    ->withTimestamps();
+    }
+
+    public function stockAlerts()
+    {
+        return $this->hasMany(StockAlert::class);
     }
 
     public function category()
@@ -42,27 +61,16 @@ class Product extends Model
         return $this->belongsTo(Brand::class);
     }
 
-    // علاقة many-to-many مع بيانات pivot لكل فرع
-    public function branches()
-    {
-        return $this->belongsToMany(Branch::class)
-            ->withPivot([
-                'price',
-                'purchase_price',
-                'stock',
-                'is_tax_included',
-                'tax_percentage',
-            ])
-            ->withTimestamps();
-    }
+    /*========================
+        خصائص إضافية
+    ========================*/
 
-    // السعر بعد الضريبة (عام)
+    // السعر العام بعد الضريبة
     public function getFinalPriceAttribute()
     {
         if ($this->is_tax_included) {
             return $this->sale_price;
         }
-
         $taxRate = $this->tax_percentage ?? 0;
         return $this->sale_price + ($this->sale_price * ($taxRate / 100));
     }
@@ -70,92 +78,84 @@ class Product extends Model
     // السعر بعد الضريبة حسب الفرع
     public function getFinalPriceForBranch($branchId = null)
     {
-        if (!$branchId) {
-            return $this->final_price;
+        $price = $this->sale_price;
+        $isTaxIncluded = (bool) $this->is_tax_included;
+        $tax = $this->tax_percentage ?? 0;
+
+        if ($branchId) {
+            $bp = $this->branches->firstWhere('id', $branchId);
+            if ($bp && $bp->pivot) {
+                $price = $bp->pivot->price ?? $price;
+                $isTaxIncluded = (bool) ($bp->pivot->is_tax_included ?? $isTaxIncluded);
+                $tax = $bp->pivot->tax_percentage ?? $tax;
+            }
         }
 
-        $branch = $this->branches->firstWhere('id', $branchId);
-
-        if ($branch && $branch->pivot) {
-            $price = $branch->pivot->price;
-            $isTaxIncluded = $branch->pivot->is_tax_included;
-            $taxPercentage = $branch->pivot->tax_percentage ?? 0;
-
-            return $isTaxIncluded ? $price : $price + ($price * ($taxPercentage / 100));
+        if (!$isTaxIncluded && $tax > 0) {
+            return (float) $price + ((float) $price * ((float) $tax / 100));
         }
 
-        return $this->final_price;
+        return (float) $price;
     }
 
-    /**
-     * تحقق من وجود كمية كافية في فرع معين
-     *
-     * @param int $branchId
-     * @param int|float $requiredQty
-     * @return bool
-     */
+    // تنبيه المخزون المنخفض
+public function getLowStockAlertAttribute()
+{
+    $currentBranchId = session('current_branch_id');
+
+    if ($currentBranchId) {
+        $pivot = $this->branches->firstWhere('id', $currentBranchId)?->pivot;
+        if (!$pivot) {
+            return false; // المنتج مش مرتبط بالفرع ده
+        }
+        return $pivot->low_stock_threshold > 0 && $pivot->stock <= $pivot->low_stock_threshold;
+    }
+
+    // لو مفيش فرع محدد: نفحص كل الفروع
+    foreach ($this->branches as $branch) {
+        if ($branch->pivot->low_stock_threshold > 0 && $branch->pivot->stock <= $branch->pivot->low_stock_threshold) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+
+
+    /*========================
+        عمليات المخزون
+    ========================*/
+
     public function hasSufficientStockInBranch($branchId, $requiredQty)
     {
         $branch = $this->branches()->where('branch_id', $branchId)->first();
-
-        if (!$branch) {
-            return false; // لا يوجد المنتج في هذا الفرع
-        }
-
-        $stock = $branch->pivot->stock ?? 0;
-
+        $stock = $branch?->pivot->stock ?? 0;
         return $stock >= $requiredQty;
     }
 
-    /**
-     * تحديث كمية المخزون في فرع معين
-     *
-     * @param int $branchId
-     * @param int|float $qtyChange (مثبت أو سالب)
-     * @return bool
-     */
     public function updateStockInBranch($branchId, $qtyChange)
     {
-        // الحصول على السجل pivot الحالي
         $branchPivot = $this->branches()->where('branch_id', $branchId)->first();
-
-        if (!$branchPivot) {
-            // إذا لم يكن موجودًا، يمكن إنشاء السجل (حسب منطق العمل)
-            // هنا نرجع false
-            return false;
-        }
+        if (!$branchPivot) return false;
 
         $currentStock = $branchPivot->pivot->stock ?? 0;
         $newStock = $currentStock + $qtyChange;
 
-        if ($newStock < 0) {
-            // لا تسمح برصيد سلبي
-            return false;
-        }
+        if ($newStock < 0) return false;
 
-        // تحديث كمية المخزون في جدول pivot
         $this->branches()->updateExistingPivot($branchId, ['stock' => $newStock]);
-
         return true;
     }
 
-    /**
-     * تحديث سعر الشراء في فرع معين (مثلاً لحساب متوسط السعر)
-     *
-     * @param int $branchId
-     * @param float $newPurchasePrice
-     * @return bool
-     */
     public function updatePurchasePriceInBranch($branchId, $newPurchasePrice)
     {
         $branchPivot = $this->branches()->where('branch_id', $branchId)->first();
+        if (!$branchPivot) return false;
 
-        if (!$branchPivot) {
-            return false;
-        }
-
-        $this->branches()->updateExistingPivot($branchId, ['purchase_price' => $newPurchasePrice]);
-
+        $this->branches()->updateExistingPivot($branchId, [
+            'purchase_price' => $newPurchasePrice
+        ]);
         return true;
     }
 }

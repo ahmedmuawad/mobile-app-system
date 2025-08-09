@@ -1,11 +1,21 @@
 @extends('layouts.app')
 
-@section('title', 'تعديل منتج')
+@section('title', 'تعديل المنتج')
 
 @section('content')
+@if ($errors->any())
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 @php
-    $currentBranchId = auth()->user()->branch_id;
+    $currentBranchId = session('current_branch_id');
 @endphp
+
 <div class="container">
     <div class="card shadow rounded-3">
         <div class="card-header text-center bg-warning text-dark fw-bold fs-5">
@@ -17,17 +27,20 @@
                 @csrf
                 @method('PUT')
 
-                <!-- بيانات المنتج الأساسية -->
+                {{-- 🏷️ الاسم والتصنيف --}}
                 <div class="row mb-3">
                     <div class="col-md-6">
                         <label for="name" class="form-label">📦 اسم المنتج</label>
-                        <input type="text" class="form-control" id="name" name="name" value="{{ old('name', $product->name) }}" required>
+                        <input type="text" class="form-control" id="name" name="name"
+                            value="{{ old('name', $product->name) }}" required>
                     </div>
+
                     <div class="col-md-6">
                         <label for="category_id" class="form-label">📂 التصنيف</label>
                         <select class="form-select" id="category_id" name="category_id" required>
                             @foreach($categories as $category)
-                                <option value="{{ $category->id }}" {{ (old('category_id', $product->category_id) == $category->id) ? 'selected' : '' }}>
+                                <option value="{{ $category->id }}"
+                                    {{ old('category_id', $product->category_id) == $category->id ? 'selected' : '' }}>
                                     {{ $category->name }}
                                 </option>
                             @endforeach
@@ -35,128 +48,159 @@
                     </div>
                 </div>
 
-                <!-- الأسعار والكمية -->
+                {{-- 💰 الأسعار والكمية (قيم افتراضية للفروع) --}}
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <label for="purchase_price" class="form-label">💰 سعر الشراء</label>
-                        <input type="number" step="0.01" class="form-control" id="purchase_price" name="purchase_price" value="{{ old('purchase_price', $product->purchase_price) }}" required>
+                        <label for="purchase_price" class="form-label">💰 سعر الشراء (افتراضي)</label>
+                        <input type="number" step="0.01" class="form-control" id="purchase_price" name="purchase_price"
+                            value="{{ old('purchase_price', $product->purchase_price) }}">
                     </div>
                     <div class="col-md-4">
                         <label for="sale_price" class="form-label">💵 سعر البيع (افتراضي)</label>
-                        <input type="number" step="0.01" class="form-control" id="sale_price" name="sale_price" value="{{ old('sale_price', $product->sale_price) }}" required>
+                        <input type="number" step="0.01" class="form-control" id="sale_price" name="sale_price"
+                            value="{{ old('sale_price', $product->sale_price) }}">
                     </div>
                     <div class="col-md-4">
-                        <label for="stock" class="form-label">📦 الكمية المتوفرة (إجمالية)</label>
-                        <input type="number" class="form-control" id="stock" name="stock" value="{{ old('stock', $product->stock) }}" required>
+                        <label for="stock" class="form-label">📦 الكمية (إجمالية)</label>
+                        <input type="number" class="form-control" id="stock" name="stock"
+                            value="{{ old('stock', $product->stock) }}">
                     </div>
                 </div>
 
-                <!-- ضريبة / باركود -->
+                {{-- 💼 الضريبة والباركود --}}
                 <div class="row mb-3">
                     <div class="col-md-4">
                         <label for="is_tax_included" class="form-label">💼 السعر شامل الضريبة؟</label>
                         <select class="form-select" name="is_tax_included" id="is_tax_included" required>
-                            <option value="0" {{ $product->is_tax_included ? '' : 'selected' }}>❌ لا</option>
-                            <option value="1" {{ $product->is_tax_included ? 'selected' : '' }}>✅ نعم</option>
+                            <option value="0" {{ old('is_tax_included', $product->is_tax_included) == 0 ? 'selected' : '' }}>❌ لا</option>
+                            <option value="1" {{ old('is_tax_included', $product->is_tax_included) == 1 ? 'selected' : '' }}>✅ نعم</option>
                         </select>
                     </div>
                     <div class="col-md-4">
                         <label for="tax_percentage" class="form-label">٪ نسبة الضريبة</label>
-                        <input type="number" step="0.01" class="form-control" id="tax_percentage" name="tax_percentage" value="{{ old('tax_percentage', $product->tax_percentage) }}">
+                        <input type="number" step="0.01" class="form-control" id="tax_percentage" name="tax_percentage"
+                            value="{{ old('tax_percentage', $product->tax_percentage) }}">
                     </div>
                     <div class="col-md-4">
                         <label for="barcode" class="form-label">🔢 الباركود</label>
-                        <input type="text" class="form-control" name="barcode" id="barcode" value="{{ old('barcode', $product->barcode) }}" maxlength="20">
+                        <input type="text" class="form-control" name="barcode" id="barcode"
+                            value="{{ old('barcode', $product->barcode) }}" maxlength="20">
+                        <svg id="barcode-preview" class="d-block my-2"></svg>
+                    </div>
+                </div>
 
-                        <div class="mt-2" style="min-height:60px;">
-                            <svg id="barcode-preview"></svg>
+                {{-- طباعة الباركود --}}
+                <div class="row mb-3">
+                    <div class="col-md-2">
+                        <label for="barcode_copies" class="form-label">📄 عدد النسخ</label>
+                        <input type="number" class="form-control" id="barcode_copies" value="1" min="1" max="100">
+                    </div>
+                    <div class="col-md-10 d-flex align-items-end">
+                        <button type="button" id="print-barcode" class="btn btn-dark w-100">
+                            🖨️ طباعة الباركود
+                        </button>
+                    </div>
+                </div>
+
+                {{-- 🖼️ الماركة والصورة --}}
+                <div class="row mb-3">
+                    <div class="col-md-6">
+                        <label for="brand_id" class="form-label">🏷️ الماركة</label>
+                        <select class="form-select" name="brand_id" id="brand_id">
+                            <option value="">لا يوجد</option>
+                            @foreach($brands as $brand)
+                                <option value="{{ $brand->id }}"
+                                    {{ old('brand_id', $product->brand_id) == $brand->id ? 'selected' : '' }}>
+                                    {{ $brand->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="image" class="form-label">🖼️ صورة المنتج</label>
+                        <input type="file" class="form-control" id="image" name="image" accept="image/*">
+                        @if($product->image)
+                            <img src="{{ asset('storage/' . $product->image) }}" class="mt-2 rounded" width="100">
+                        @endif
+                    </div>
+                </div>
+
+                {{-- 💡 نتيجة الضريبة --}}
+                <div class="alert alert-info mt-3" id="tax-result"></div>
+
+                {{-- 🏢 إعدادات الفروع --}}
+<div class="mt-4">
+    <h5 class="fw-bold text-primary">📍 إعدادات الفروع:</h5>
+    <div class="row">
+        @foreach($branches as $branch)
+            @php
+                $pivot = $product->branches->firstWhere('id', $branch->id)?->pivot;
+                $isCurrent = !$currentBranchId || $branch->id == $currentBranchId;
+            @endphp
+            <div class="col-md-6 mb-3">
+                <div class="border rounded p-2 {{ $isCurrent ? 'border-primary' : 'border-light bg-light' }}">
+                    <h6 class="text-dark mb-2">{{ $branch->name }}</h6>
+
+                    {{-- 💰 سعر الشراء + 💵 سعر البيع --}}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">💰 سعر الشراء</label>
+                            <input type="number" step="0.01" class="form-control"
+                                name="branch_purchase_price[{{ $branch->id }}]"
+                                value="{{ old("branch_purchase_price.{$branch->id}", $pivot->purchase_price ?? 0) }}"
+                                {{ $isCurrent ? '' : 'disabled' }}>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">💵 سعر البيع</label>
+                            <input type="number" step="0.01" class="form-control"
+                                name="branch_price[{{ $branch->id }}]"
+                                value="{{ old("branch_price.{$branch->id}", $pivot->price ?? 0) }}"
+                                {{ $isCurrent ? '' : 'disabled' }}>
+                        </div>
+                    </div>
+
+                    {{-- 📦 الكمية + عتبة التنبيه --}}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">📦 الكمية</label>
+                            <input type="number" class="form-control"
+                                name="branch_stock[{{ $branch->id }}]"
+                                value="{{ old("branch_stock.{$branch->id}", $pivot->stock ?? 0) }}"
+                                {{ $isCurrent ? '' : 'disabled' }}>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">⚠️ تنبيه عند الكمية</label>
+                            <input type="number" class="form-control"
+                                name="branch_low_stock_threshold[{{ $branch->id }}]"
+                                value="{{ old("branch_low_stock_threshold.{$branch->id}", $pivot->low_stock_threshold ?? 0) }}"
+                                {{ $isCurrent ? '' : 'disabled' }}>
+                        </div>
+                    </div>
+
+                    {{-- 💼 السعر شامل الضريبة؟ + نسبة الضريبة --}}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">💼 السعر شامل الضريبة؟</label>
+                            <select class="form-select" name="branch_tax_included[{{ $branch->id }}]"
+                                {{ $isCurrent ? '' : 'disabled' }}>
+                                <option value="0" {{ old("branch_tax_included.{$branch->id}", $pivot->is_tax_included ?? 0) == 0 ? 'selected' : '' }}>❌ لا</option>
+                                <option value="1" {{ old("branch_tax_included.{$branch->id}", $pivot->is_tax_included ?? 0) == 1 ? 'selected' : '' }}>✅ نعم</option>
+                            </select>
+                        </div>
+                        <div class="col-6">
+                            <label class="form-label">٪ نسبة الضريبة</label>
+                            <input type="number" step="0.01" class="form-control"
+                                name="branch_tax_percentage[{{ $branch->id }}]"
+                                value="{{ old("branch_tax_percentage.{$branch->id}", $pivot->tax_percentage ?? 0) }}"
+                                {{ $isCurrent ? '' : 'disabled' }}>
                         </div>
                     </div>
                 </div>
+            </div>
+        @endforeach
+    </div>
+</div>
 
-                <!-- طباعة الباركود -->
-                <div class="row mb-3">
-                    <div class="col-md-6">
-                        <label class="form-label">🖨️ عدد نسخ الباركود للطباعة</label>
-                        <input type="number" id="barcode_copies" class="form-control" value="1" min="1" max="50">
-                    </div>
-                    <div class="col-md-6 d-flex align-items-end">
-                        <button type="button" class="btn btn-outline-dark w-100" id="print-barcode">🖨️ طباعة الباركود</button>
-                    </div>
-                </div>
-
-                {{-- <-- عنصر SVG مخفي لرندر الباركود --> --}}
-                    <svg id="print-barcode-preview" class="d-none"></svg>
-
-                <!-- الماركة -->
-                <div class="mb-3">
-                    <label for="brand_id" class="form-label">🏷️ الماركة</label>
-                    <select class="form-select" name="brand_id" id="brand_id">
-                        <option value="">لا يوجد</option>
-                        @foreach($brands as $brand)
-                            <option value="{{ $brand->id }}" {{ (old('brand_id', $product->brand_id) == $brand->id) ? 'selected' : '' }}>{{ $brand->name }}</option>
-                        @endforeach
-                    </select>
-                </div>
-
-                <!-- صورة المنتج -->
-                <div class="mb-3">
-                    <label for="image" class="form-label">🖼️ صورة المنتج</label>
-                    <input type="file" class="form-control" id="image" name="image" accept="image/*">
-                    @if($product->image)
-                        <img src="{{ asset('storage/' . $product->image) }}" class="mt-2 rounded" width="100">
-                    @endif
-                </div>
-
-                <!-- نتيجة حساب الضريبة -->
-                <div class="alert alert-info mt-3" id="tax-result"></div>
-
-                <!-- تحديث بيانات الفروع -->
-                <div class="mt-4">
-                    <h5 class="fw-bold text-primary">📍 تحديث بيانات كل فرع:</h5>
-                    <div class="row">
-                        @foreach($branches as $branch)
-                            @if(auth()->user()->branches->contains('id', $branch->id))
-                                    @php $pivot = $product->branches->firstWhere('id', $branch->id)?->pivot; @endphp
-                                <div class="col-md-6 mb-3">
-                                    <div data-branch-id="{{ $branch->id }}" {{ $currentBranchId == $branch->id ? 'data-current-branch=1' : '' }}>
-                                        <div class="border rounded p-2">
-                                            <h6 class="text-dark mb-2">{{ $branch->name }} <span class="badge bg-success">الفرع الحالي</span></h6>
-                                            <div class="row mb-2">
-                                                <div class="col-6">
-                                                    <label class="form-label">💰 سعر الشراء</label>
-                                                    <input type="number" step="0.01" class="form-control" name="branch_purchase_price[{{ $branch->id }}]" value="{{ old("branch_purchase_price.{$branch->id}", $pivot->purchase_price ?? '') }}">
-                                                </div>
-                                                <div class="col-6">
-                                                    <label class="form-label">💵 سعر البيع</label>
-                                                    <input type="number" step="0.01" class="form-control" name="branch_price[{{ $branch->id }}]" value="{{ old("branch_price.{$branch->id}", $pivot->price ?? '') }}">
-                                                </div>
-                                            </div>
-                                            <div class="row mb-2">
-                                                <div class="col-6">
-                                                    <label class="form-label">📦 الكمية</label>
-                                                    <input type="number" class="form-control" name="branch_stock[{{ $branch->id }}]" value="{{ old("branch_stock.{$branch->id}", $pivot->stock ?? 0) }}">
-                                                </div>
-                                                <div class="col-6">
-                                                    <label class="form-label">💼 السعر شامل الضريبة؟</label>
-                                                    <select class="form-select" name="branch_tax_included[{{ $branch->id }}]">
-                                                        <option value="0" {{ (old("branch_tax_included.{$branch->id}", $pivot->is_tax_included ?? 0) == 0) ? 'selected' : '' }}>❌ لا</option>
-                                                        <option value="1" {{ (old("branch_tax_included.{$branch->id}", $pivot->is_tax_included ?? 0) == 1) ? 'selected' : '' }}>✅ نعم</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <label class="form-label">٪ نسبة الضريبة</label>
-                                                <input type="number" step="0.01" class="form-control" name="branch_tax_percentage[{{ $branch->id }}]" value="{{ old("branch_tax_percentage.{$branch->id}", $pivot->tax_percentage ?? '') }}">
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endif
-                        @endforeach
-
-                    </div>
-                </div>
 
                 <div class="d-flex justify-content-between mt-4">
                     <button type="submit" class="btn btn-warning">💾 تحديث المنتج</button>
@@ -167,7 +211,6 @@
     </div>
 </div>
 @endsection
-
 @push('scripts')
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>

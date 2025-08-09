@@ -9,6 +9,7 @@ use App\Models\Branch;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
+use App\Services\StockService;
 
 class ProductController extends Controller
 {
@@ -17,7 +18,16 @@ class ProductController extends Controller
         $user = auth()->user();
         $currentBranchId = session('current_branch_id');
 
-        $query = Product::with(['category', 'brand']);
+        $query = Product::with([
+            'category',
+            'brand',
+            'branches',
+            'stockAlerts' => function ($q) use ($currentBranchId) {
+                if ($currentBranchId) {
+                    $q->where('branch_id', $currentBranchId);
+                }
+            }
+        ]);
 
         if ($request->filled('brand_id')) {
             $query->where('brand_id', $request->brand_id);
@@ -27,18 +37,10 @@ class ProductController extends Controller
             $query->where('category_id', $request->category_id);
         }
 
-        if ($currentBranchId && $user->branches()->where('branch_id', $currentBranchId)->exists()) {
-            $query->whereHas('branches', function ($q) use ($currentBranchId) {
-                $q->where('branches.id', $currentBranchId);
-            })->with(['branches' => function ($q) use ($currentBranchId) {
-                $q->where('branches.id', $currentBranchId);
-            }]);
-        } else {
-            $userBranchIds = $user->branches->pluck('id')->toArray();
-            $query->whereHas('branches', function ($q) use ($userBranchIds) {
-                $q->whereIn('branches.id', $userBranchIds);
-            });
-        }
+        $userBranchIds = $user->branches->pluck('id')->toArray();
+        $query->whereHas('branches', function ($q) use ($userBranchIds) {
+            $q->whereIn('branches.id', $userBranchIds);
+        });
 
         $products = $query->latest()->get();
         $brands = Brand::all();
@@ -58,20 +60,22 @@ class ProductController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'name'              => 'required|string|max:255',
-            'category_id'       => 'required|exists:categories,id',
-            'brand_id'          => 'nullable|exists:brands,id',
-            'purchase_price'    => 'required|numeric|min:0',
-            'sale_price'        => 'required|numeric|min:0',
-            'stock'             => 'required|integer|min:0',
-            'is_tax_included'   => 'required|boolean',
-            'tax_percentage'    => 'nullable|numeric|min:0|max:100',
-            'barcode'           => 'nullable|string|max:20|unique:products,barcode',
-            'image'             => 'nullable|image|max:2048',
-            'branch_price'      => 'array',
-            'branch_stock'      => 'array',
-            'branch_price.*'    => 'nullable|numeric|min:0',
-            'branch_stock.*'    => 'nullable|integer|min:0',
+            'name'                  => 'required|string|max:255',
+            'category_id'           => 'required|exists:categories,id',
+            'brand_id'              => 'nullable|exists:brands,id',
+            'purchase_price'        => 'required|numeric|min:0',
+            'sale_price'            => 'required|numeric|min:0',
+            'stock'                 => 'required|integer|min:0',
+            'is_tax_included'       => 'required|boolean',
+            'tax_percentage'        => 'nullable|numeric|min:0|max:100',
+            'barcode'               => 'nullable|string|max:20|unique:products,barcode',
+            'image'                 => 'nullable|image|max:2048',
+            'branch_price'          => 'array',
+            'branch_purchase_price' => 'array',
+            'branch_stock'          => 'array',
+            'branch_tax_included'   => 'array',
+            'branch_tax_percentage' => 'array',
+            'branch_low_stock_threshold' => 'array', // ✅ جديد
         ]);
 
         if (str_word_count($request->name) > 10) {
@@ -88,51 +92,60 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
-        $syncData = [];
-        foreach ($request->branch_price ?? [] as $branchId => $price) {
-            $syncData[$branchId] = [
-                'price'             => $price ?? 0,
-                'purchase_price'    => $request->branch_purchase_price[$branchId] ?? 0,
-                'stock'             => $request->branch_stock[$branchId] ?? 0,
-                'is_tax_included'   => $request->branch_tax_included[$branchId] ?? 0,
-                'tax_percentage'    => $request->branch_tax_percentage[$branchId] ?? null,
-            ];
-        }
+        $validBranchIds = auth()->user()->branches->pluck('id')->toArray();
 
-        if (!empty($syncData)) {
-            $product->branches()->sync($syncData);
+        foreach ($request->branch_price ?? [] as $branchId => $price) {
+            if (!in_array((int)$branchId, $validBranchIds)) {
+                continue;
+            }
+
+            $product->branches()->syncWithoutDetaching([
+                $branchId => [
+                    'price' => $price ?? 0,
+                    'purchase_price' => $request->branch_purchase_price[$branchId] ?? 0,
+                    'stock' => 0,
+                    'is_tax_included' => $request->branch_tax_included[$branchId] ?? 0,
+                    'tax_percentage' => $request->branch_tax_percentage[$branchId] ?? null,
+                    'low_stock_threshold' => $request->branch_low_stock_threshold[$branchId] ?? 0, // ✅ جديد
+                ]
+            ]);
+
+            $stockQty = (int)($request->branch_stock[$branchId] ?? 0);
+            if ($stockQty > 0) {
+                StockService::increaseStock((int)$branchId, $product->id, $stockQty, 'إضافة منتج جديد', [
+                    'reference_type' => 'product_create',
+                    'reference_id' => $product->id,
+                    'user_id' => auth()->id(),
+                ]);
+            }
         }
 
         return redirect()->route('admin.products.index')->with('success', 'تم إضافة المنتج بنجاح.');
     }
 
-public function edit($id)
-{
-    $product = Product::with('branches')->findOrFail($id);
-    $categories = Category::all();
-    $brands = Brand::all();
+    public function edit($id)
+    {
+        $product = Product::with('branches')->findOrFail($id);
+        $categories = Category::all();
+        $brands = Brand::all();
 
-    $userBranches = auth()->user()->branches->pluck('id');
-    $currentBranchId = session('current_branch_id');
+        $userBranches = auth()->user()->branches->pluck('id');
+        $currentBranchId = session('current_branch_id');
 
-    if ($currentBranchId) {
-        // فرع محدد
-        $branches = Branch::where('id', $currentBranchId)
-                          ->whereIn('id', $userBranches)
-                          ->get();
-    } else {
-        // كل الفروع
-        $branches = Branch::whereIn('id', $userBranches)->get();
+        if ($currentBranchId) {
+            $branches = Branch::where('id', $currentBranchId)
+                              ->whereIn('id', $userBranches)
+                              ->get();
+        } else {
+            $branches = Branch::whereIn('id', $userBranches)->get();
+        }
+
+        return view('admin.views.products.edit', compact('product', 'categories', 'brands', 'branches'));
     }
-
-    return view('admin.views.products.edit', compact('product', 'categories', 'brands', 'branches'));
-}
-
-
 
     public function update(Request $request, $id)
     {
-        $product = Product::findOrFail($id);
+        $product = Product::with('branches', 'stockAlerts')->findOrFail($id);
 
         $request->validate([
             'name' => 'required|string|max:255',
@@ -145,9 +158,9 @@ public function edit($id)
             'barcode' => 'nullable|string|max:20|unique:products,barcode,' . $id,
             'brand_id' => 'nullable|exists:brands,id',
             'image' => 'nullable|image|max:2048',
+            'branch_low_stock_threshold' => 'array', // ✅ جديد
         ]);
 
-        // تحديث بيانات المنتج الأساسية
         $product->update([
             'name' => $request->name,
             'category_id' => $request->category_id,
@@ -160,29 +173,64 @@ public function edit($id)
             'brand_id' => $request->brand_id,
         ]);
 
-        // حفظ صورة جديدة إن وُجدت
         if ($request->hasFile('image')) {
             $imagePath = $request->file('image')->store('products', 'public');
             $product->update(['image' => $imagePath]);
         }
 
-        // تحديث بيانات الفروع
+        $validBranchIds = auth()->user()->branches->pluck('id')->toArray();
+
         foreach ($request->branch_purchase_price ?? [] as $branchId => $purchasePrice) {
-            // تحقق أن المستخدم له صلاحية على هذا الفرع
-            if (auth()->user()->branches->contains('id', $branchId)) {
-                $product->branches()->updateExistingPivot($branchId, [
+            $branchId = (int)$branchId;
+            if (!in_array($branchId, $validBranchIds)) {
+                continue;
+            }
+
+            $existing = $product->branches->firstWhere('id', $branchId);
+            if (!$existing) {
+                $product->branches()->attach($branchId, [
                     'purchase_price' => $purchasePrice,
                     'price' => $request->branch_price[$branchId] ?? 0,
-                    'stock' => $request->branch_stock[$branchId] ?? 0,
+                    'stock' => 0,
                     'is_tax_included' => $request->branch_tax_included[$branchId] ?? 0,
                     'tax_percentage' => $request->branch_tax_percentage[$branchId] ?? 0,
+                    'low_stock_threshold' => $request->branch_low_stock_threshold[$branchId] ?? 0, // ✅ جديد
+                ]);
+                $oldStock = 0;
+            } else {
+                $oldStock = $existing->pivot->stock ?? 0;
+            }
+
+            $newStock = (int)($request->branch_stock[$branchId] ?? 0);
+            $stockDiff = $newStock - $oldStock;
+
+            $product->branches()->updateExistingPivot($branchId, [
+                'purchase_price' => $purchasePrice,
+                'price' => $request->branch_price[$branchId] ?? 0,
+                'is_tax_included' => $request->branch_tax_included[$branchId] ?? 0,
+                'tax_percentage' => $request->branch_tax_percentage[$branchId] ?? 0,
+                'low_stock_threshold' => $request->branch_low_stock_threshold[$branchId] ?? 0, // ✅ جديد
+            ]);
+
+            if ($stockDiff > 0) {
+                StockService::increaseStock($branchId, $product->id, $stockDiff, 'تعديل المنتج - زيادة مخزون', [
+                    'reference_type' => 'product_edit',
+                    'reference_id' => $product->id,
+                    'user_id' => auth()->id(),
+                    'note' => 'زيادة المخزون من تعديل المنتج'
+                ]);
+            } elseif ($stockDiff < 0) {
+                StockService::decreaseStock($branchId, $product->id, abs($stockDiff), 'تعديل المنتج - خفض مخزون', [
+                    'reference_type' => 'product_edit',
+                    'reference_id' => $product->id,
+                    'user_id' => auth()->id(),
+                    'note' => 'خفض المخزون من تعديل المنتج'
                 ]);
             }
         }
 
         return redirect()->route('admin.products.index')->with('success', '✅ تم تحديث المنتج بنجاح.');
     }
-
 
     public function destroy($id)
     {
@@ -236,23 +284,36 @@ public function edit($id)
 
         $path = $request->file('products_file')->getRealPath();
         $rows = Excel::toArray([], $path)[0];
-
         unset($rows[0]);
 
         foreach ($rows as $row) {
             if (!isset($row[0]) || empty($row[0])) continue;
 
-            Product::create([
+            $product = Product::create([
                 'name'            => $row[0],
                 'barcode'         => $row[1],
                 'category_id'     => $row[2],
                 'brand_id'        => $row[3],
                 'sale_price'      => $row[4],
                 'purchase_price'  => $row[5],
-                'stock'           => $row[6],
+                'stock'           => 0,
                 'is_tax_included' => $row[7] ?? 0,
                 'tax_percentage'  => $row[8] ?? 0,
             ]);
+
+            $currentBranchId = session('current_branch_id');
+            if ($currentBranchId && is_numeric($row[6]) && $row[6] > 0) {
+                $product->branches()->syncWithoutDetaching([
+                    $currentBranchId => [
+                        'price' => $row[4],
+                        'purchase_price' => $row[5],
+                        'is_tax_included' => $row[7] ?? 0,
+                        'tax_percentage' => $row[8] ?? 0,
+                        'low_stock_threshold' => 0, // ✅ جديد
+                    ]
+                ]);
+                StockService::increaseStock($product->id, $currentBranchId, $row[6], 'استيراد منتجات');
+            }
         }
 
         return back()->with('success', 'تم استيراد المنتجات بنجاح');

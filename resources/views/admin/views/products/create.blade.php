@@ -4,6 +4,15 @@
 @section('title', 'إضافة منتج جديد')
 
 @section('content')
+@if ($errors->any())
+    <div class="alert alert-danger">
+        <ul class="mb-0">
+            @foreach ($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 @php
     $currentBranchId = session('current_branch_id');
 @endphp
@@ -40,22 +49,22 @@
                     </div>
                 </div>
 
-                {{-- 💰 الأسعار والكمية --}}
+                {{-- 💰 الأسعار والكمية (قيم افتراضية للفروع) --}}
                 <div class="row mb-3">
                     <div class="col-md-4">
-                        <label for="purchase_price" class="form-label">💰 سعر الشراء</label>
-                        <input type="number" step="0.01" class="form-control" id="purchase_price"
-                            name="purchase_price" value="{{ old('purchase_price') }}" required>
+                        <label for="purchase_price" class="form-label">💰 سعر الشراء (افتراضي للفروع)</label>
+                        <input type="number" step="0.01" class="form-control" id="purchase_price" name="purchase_price"
+                            value="{{ old('purchase_price') }}">
                     </div>
                     <div class="col-md-4">
-                        <label for="sale_price" class="form-label">💵 سعر البيع (افتراضي)</label>
-                        <input type="number" step="0.01" class="form-control" id="sale_price"
-                            name="sale_price" value="{{ old('sale_price') }}" required>
+                        <label for="sale_price" class="form-label">💵 سعر البيع (افتراضي للفروع)</label>
+                        <input type="number" step="0.01" class="form-control" id="sale_price" name="sale_price"
+                            value="{{ old('sale_price') }}">
                     </div>
                     <div class="col-md-4">
-                        <label for="stock" class="form-label">📦 الكمية المتوفرة (إجمالية)</label>
+                        <label for="stock" class="form-label">📦 الكمية (افتراضية للفروع)</label>
                         <input type="number" class="form-control" id="stock" name="stock"
-                            value="{{ old('stock', 1) }}" required>
+                            value="{{ old('stock', 0) }}">
                     </div>
                 </div>
 
@@ -121,72 +130,113 @@
                 {{-- 💡 نتيجة الضريبة --}}
                 <div class="alert alert-info mt-3" id="tax-result"></div>
 
-                {{-- 🏢 إعدادات الفروع --}}
-                <div class="mt-4">
-                    <h5 class="fw-bold text-primary">📍 إعدادات الفروع:</h5>
-                    <div class="row">
-                        @foreach($branches as $branch)
-                            @php
-                                $isCurrent = !$currentBranchId || $branch->id == $currentBranchId;
-                            @endphp
-                            <div class="col-md-6 mb-3">
-                                <div class="border rounded p-2 {{ $isCurrent ? 'border-primary' : 'border-light bg-light' }}">
-                                    <h6 class="text-dark mb-2">
-                                        {{ $branch->name }}
-                                        @if($isCurrent)
-                                            <span class="badge bg-success">الفرع الحالي</span>
-                                        @else
-                                            <span class="badge bg-secondary">غير مفعل</span>
-                                        @endif
-                                    </h6>
+<div class="mt-4">
+    <h5 class="fw-bold text-primary">📍 إعدادات الفروع:</h5>
+    <div class="row">
+        @foreach($branches as $branch)
+            @php
+                $isCurrent = !$currentBranchId || $branch->id == $currentBranchId;
+            @endphp
+            <div class="col-md-6 mb-3">
+                <div class="border rounded p-2 {{ $isCurrent ? 'border-primary' : 'border-light bg-light' }}">
+                    <h6 class="text-dark mb-2">{{ $branch->name }}</h6>
 
-                                    <div class="row mb-2">
-                                        <div class="col-6">
-                                            <label class="form-label">💰 سعر الشراء</label>
-                                            <input type="number" step="0.01" class="form-control"
-                                                name="branch_purchase_price[{{ $branch->id }}]"
-                                                value="{{ old("branch_purchase_price.{$branch->id}") }}"
-                                                {{ $isCurrent ? '' : 'disabled' }}>
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label">💵 سعر البيع</label>
-                                            <input type="number" step="0.01" class="form-control"
-                                                name="branch_price[{{ $branch->id }}]"
-                                                value="{{ old("branch_price.{$branch->id}") }}"
-                                                {{ $isCurrent ? '' : 'disabled' }}>
-                                        </div>
-                                    </div>
+                    {{-- 💰 سعر الشراء و 💵 سعر البيع --}}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">💰 سعر الشراء</label>
+                            @if($isCurrent)
+                                <input type="number" step="0.01" class="form-control"
+                                    name="branch_purchase_price[{{ $branch->id }}]"
+                                    value="{{ old("branch_purchase_price.{$branch->id}") }}">
+                            @else
+                                <input type="hidden" name="branch_purchase_price[{{ $branch->id }}]" value="{{ old("branch_purchase_price.{$branch->id}", 0) }}">
+                                <input type="number" step="0.01" class="form-control"
+                                    value="{{ old("branch_purchase_price.{$branch->id}", 0) }}" disabled>
+                            @endif
+                        </div>
 
-                                    <div class="row mb-2">
-                                        <div class="col-6">
-                                            <label class="form-label">📦 الكمية</label>
-                                            <input type="number" class="form-control"
-                                                name="branch_stock[{{ $branch->id }}]"
-                                                value="{{ old("branch_stock.{$branch->id}", 0) }}"
-                                                {{ $isCurrent ? '' : 'disabled' }}>
-                                        </div>
-                                        <div class="col-6">
-                                            <label class="form-label">💼 السعر شامل الضريبة؟</label>
-                                            <select class="form-select" name="branch_tax_included[{{ $branch->id }}]"
-                                                {{ $isCurrent ? '' : 'disabled' }}>
-                                                <option value="0">❌ لا</option>
-                                                <option value="1">✅ نعم</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label class="form-label">٪ نسبة الضريبة</label>
-                                        <input type="number" step="0.01" class="form-control"
-                                            name="branch_tax_percentage[{{ $branch->id }}]"
-                                            value="{{ old("branch_tax_percentage.{$branch->id}") }}"
-                                            {{ $isCurrent ? '' : 'disabled' }}>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
+                        <div class="col-6">
+                            <label class="form-label">💵 سعر البيع</label>
+                            @if($isCurrent)
+                                <input type="number" step="0.01" class="form-control"
+                                    name="branch_price[{{ $branch->id }}]"
+                                    value="{{ old("branch_price.{$branch->id}") }}">
+                            @else
+                                <input type="hidden" name="branch_price[{{ $branch->id }}]" value="{{ old("branch_price.{$branch->id}", 0) }}">
+                                <input type="number" step="0.01" class="form-control"
+                                    value="{{ old("branch_price.{$branch->id}", 0) }}" disabled>
+                            @endif
+                        </div>
                     </div>
+
+                    {{-- 📦 الكمية و 💼 السعر شامل الضريبة --}}
+                    <div class="row mb-2">
+                        <div class="col-6">
+                            <label class="form-label">📦 الكمية</label>
+                            @if($isCurrent)
+                                <input type="number" class="form-control"
+                                    name="branch_stock[{{ $branch->id }}]"
+                                    value="{{ old("branch_stock.{$branch->id}", 0) }}">
+                            @else
+                                <input type="hidden" name="branch_stock[{{ $branch->id }}]" value="{{ old("branch_stock.{$branch->id}", 0) }}">
+                                <input type="number" class="form-control"
+                                    value="{{ old("branch_stock.{$branch->id}", 0) }}" disabled>
+                            @endif
+                        </div>
+
+                        <div class="col-6">
+                            <label class="form-label">💼 السعر شامل الضريبة؟</label>
+                            @if($isCurrent)
+                                <select class="form-select" name="branch_tax_included[{{ $branch->id }}]">
+                                    <option value="0" {{ old("branch_tax_included.{$branch->id}") == '0' ? 'selected' : '' }}>❌ لا</option>
+                                    <option value="1" {{ old("branch_tax_included.{$branch->id}") == '1' ? 'selected' : '' }}>✅ نعم</option>
+                                </select>
+                            @else
+                                <input type="hidden" name="branch_tax_included[{{ $branch->id }}]" value="{{ old("branch_tax_included.{$branch->id}", 0) }}">
+                                <select class="form-select" disabled>
+                                    <option value="0" {{ old("branch_tax_included.{$branch->id}") == '0' ? 'selected' : '' }}>❌ لا</option>
+                                    <option value="1" {{ old("branch_tax_included.{$branch->id}") == '1' ? 'selected' : '' }}>✅ نعم</option>
+                                </select>
+                            @endif
+                        </div>
+                    </div>
+
+                    {{-- ٪ نسبة الضريبة --}}
+                    <div class="mb-2">
+                        <label class="form-label">٪ نسبة الضريبة</label>
+                        @if($isCurrent)
+                            <input type="number" step="0.01" class="form-control"
+                                name="branch_tax_percentage[{{ $branch->id }}]"
+                                value="{{ old("branch_tax_percentage.{$branch->id}") }}">
+                        @else
+                            <input type="hidden" name="branch_tax_percentage[{{ $branch->id }}]" value="{{ old("branch_tax_percentage.{$branch->id}", 0) }}">
+                            <input type="number" step="0.01" class="form-control"
+                                value="{{ old("branch_tax_percentage.{$branch->id}", 0) }}" disabled>
+                        @endif
+                    </div>
+
+                    {{-- ⚠️ حد التنبيه للمخزون --}}
+                    <div>
+                        <label class="form-label text-danger">⚠️ حد تنبيه المخزون</label>
+                        @if($isCurrent)
+                            <input type="number" class="form-control"
+                                name="branch_low_stock_threshold[{{ $branch->id }}]"
+                                value="{{ old("branch_low_stock_threshold.{$branch->id}", 0) }}">
+                        @else
+                            <input type="hidden" name="branch_low_stock_threshold[{{ $branch->id }}]" value="{{ old("branch_low_stock_threshold.{$branch->id}", 0) }}">
+                            <input type="number" class="form-control"
+                                value="{{ old("branch_low_stock_threshold.{$branch->id}", 0) }}" disabled>
+                        @endif
+                    </div>
+
                 </div>
+            </div>
+        @endforeach
+    </div>
+</div>
+
+
 
                 <div class="d-flex justify-content-between mt-4">
                     <button type="submit" class="btn btn-success">💾 حفظ المنتج</button>
@@ -240,9 +290,10 @@ $(function () {
         $('[name^="branch_price"]').val(salePrice);
         $('[name^="branch_purchase_price"]').val(purchasePrice);
         $('[name^="branch_stock"]').val(stock);
-        $('[name^="branch_tax_included"]').val(taxIncluded).prop('disabled', taxIncluded === '1');
-        $('[name^="branch_tax_percentage"]').val(taxPercentage).prop('readonly', taxIncluded === '1');
+        $('[name^="branch_tax_included"]').val(taxIncluded);
+        $('[name^="branch_tax_percentage"]').val(taxPercentage);
     }
+
 
     // 🔒 قفل/فتح حقل نسبة الضريبة فوق حسب اختيار السعر شامل الضريبة
     function toggleTaxPercentageField() {
