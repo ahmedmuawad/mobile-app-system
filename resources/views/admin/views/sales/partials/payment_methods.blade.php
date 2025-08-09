@@ -10,44 +10,44 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($sale->payments as $index => $payment)
-            <tr>
-                <td>
-                    <select name="payments[{{ $index }}][payment_method_id]" class="form-control">
-                        <option value="">-- اختر --</option>
-                        @foreach(\App\Models\PaymentMethod::all() as $method)
-                            <option value="{{ $method->id }}" {{ $payment->payment_method_id == $method->id ? 'selected' : '' }}>
-                                {{ $method->name }}
-                            </option>
-                        @endforeach
-                    </select>
-                </td>
-                <td><input type="number" step="0.01" name="payments[{{ $index }}][amount]" class="form-control payment-amount" value="{{ $payment->amount }}"></td>
-                <td><input type="text" name="payments[{{ $index }}][reference]" class="form-control" value="{{ $payment->reference }}"></td>
-                <td><button type="button" class="btn btn-danger btn-sm remove-payment-row">حذف</button></td>
-            </tr>
-            @endforeach
-
-            {{-- إذا ما فيش دفعات، أضف صف افتراضي واحد --}}
-            @if($sale->payments->count() === 0)
-            <tr>
-                <td>
-                    <select name="payments[0][payment_method_id]" class="form-control">
-                        <option value="">-- اختر --</option>
-                        @foreach(\App\Models\PaymentMethod::all() as $method)
-                            <option value="{{ $method->id }}">{{ $method->name }}</option>
-                        @endforeach
-                    </select>
-                </td>
-                <td><input type="number" step="0.01" name="payments[0][amount]" class="form-control payment-amount" value="0"></td>
-                <td><input type="text" name="payments[0][reference]" class="form-control"></td>
-                <td><button type="button" class="btn btn-danger btn-sm remove-payment-row">حذف</button></td>
-            </tr>
+            @if(isset($sale) && $sale->payments->count() > 0)
+                @foreach($sale->payments as $index => $payment)
+                <tr>
+                    <td>
+                        <select name="payments[{{ $index }}][payment_method_id]" class="form-control">
+                            <option value="">-- اختر --</option>
+                            @foreach(\App\Models\PaymentMethod::all() as $method)
+                                <option value="{{ $method->id }}" {{ $payment->payment_method_id == $method->id ? 'selected' : '' }}>
+                                    {{ $method->name }}
+                                </option>
+                            @endforeach
+                        </select>
+                    </td>
+                    <td><input type="number" step="0.01" name="payments[{{ $index }}][amount]" class="form-control payment-amount" value="{{ $payment->amount }}"></td>
+                    <td><input type="text" name="payments[{{ $index }}][reference]" class="form-control" value="{{ $payment->reference }}"></td>
+                    <td><button type="button" class="btn btn-danger btn-sm remove-payment-row">حذف</button></td>
+                </tr>
+                @endforeach
+            @else
+                <tr>
+                    <td>
+                        <select name="payments[0][payment_method_id]" class="form-control">
+                            <option value="">-- اختر --</option>
+                            @foreach(\App\Models\PaymentMethod::all() as $method)
+                                <option value="{{ $method->id }}">{{ $method->name }}</option>
+                            @endforeach
+                        </select>
+                    </td>
+                    <td><input type="number" step="0.01" name="payments[0][amount]" class="form-control payment-amount" value="0"></td>
+                    <td><input type="text" name="payments[0][reference]" class="form-control"></td>
+                    <td><button type="button" class="btn btn-danger btn-sm remove-payment-row">حذف</button></td>
+                </tr>
             @endif
         </tbody>
     </table>
     <button type="button" class="btn btn-success btn-sm" id="add-payment-row">إضافة طريقة دفع</button>
 </div>
+
 
 {{-- @push('scripts')
 <script>

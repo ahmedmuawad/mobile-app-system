@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use Illuminate\Http\Request;
+use Maatwebsite\Excel\Facades\Excel;
+use App\Exports\CustomerHistoryExport;
 
 class CustomerController extends Controller
 {
     // 1. عرض قائمة العملاء مع صفحة ترقيم (pagination)
     public function index()
     {
-        $customers = Customer::orderBy('name')->paginate(15);
+    $customers = Customer::with(['sales', 'repairs'])->orderBy('name')->paginate(15);
         return view('admin.views.customers.index', compact('customers'));
     }
 
@@ -60,7 +62,7 @@ class CustomerController extends Controller
         return redirect()->route('admin.customers.index')->with('success', 'تم تحديث بيانات العميل بنجاح');
     }
 
-    // 7. حذف عميل (اختياري حسب متطلباتك)
+    // 7. حذف عميل
     public function destroy(Customer $customer)
     {
         $customer->delete();
@@ -68,5 +70,31 @@ class CustomerController extends Controller
         return redirect()->route('admin.customers.index')->with('success', 'تم حذف العميل بنجاح');
     }
 
-    
+    // عرض سجل العميل
+    public function history(Customer $customer)
+    {
+        $customer->load([
+            'sales.products',
+            'sales.branch',
+            'sales.payments.paymentMethod',
+            'repairs.spareParts',
+            'repairs.payments.paymentMethod'
+        ]);
+
+        return view('admin.views.customers.history', compact('customer'));
+    }
+
+    // تصدير سجل العميل كملف Excel
+    public function exportHistory($id)
+    {
+        $customer = Customer::with([
+            'sales.products',
+            'sales.branch',
+            'sales.payments.paymentMethod',
+            'repairs.spareParts',
+            'repairs.payments.paymentMethod'
+        ])->findOrFail($id);
+
+        return Excel::download(new CustomerHistoryExport($customer), 'customer_history.xlsx');
+    }
 }

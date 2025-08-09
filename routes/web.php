@@ -25,6 +25,7 @@ use App\Http\Controllers\ModuleController;
 use App\Http\Controllers\PackageModuleController;
 use App\Http\Controllers\CompanyController;
 use App\Models\Company;
+use App\Http\Controllers\StockAlertController;
 
 // ✅ صفحة تجريبية لاختبار الاشتراك والموديولز
 Route::get("/subscription-test", function () {
@@ -80,6 +81,11 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     // ✅ العملاء
     Route::middleware(['set.company','module:customers'])->group(function () {
         Route::resource('customers', CustomerController::class);
+        Route::get('customers/{customer}/history', [\App\Http\Controllers\CustomerController::class, 'history'])
+        ->name('customers.history');
+        Route::get('customers/{id}/history/export', [CustomerController::class, 'exportHistory'])
+    ->name('customers.history.export');
+
     });
 
     // ✅ المبيعات
@@ -187,5 +193,12 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // طرق الدفع
     Route::resource('payment-methods', \App\Http\Controllers\Admin\PaymentMethodController::class);
+
+    // Stock Alerts
+    Route::get('stock-alerts', [\App\Http\Controllers\StockAlertController::class, 'index'])
+        ->name('stock_alerts.index');
+
+    Route::patch('stock-alerts/{id}/toggle', [\App\Http\Controllers\StockAlertController::class, 'toggleStatus'])
+        ->name('stock_alerts.toggle');
 
 });

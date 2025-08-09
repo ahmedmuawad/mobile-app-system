@@ -41,7 +41,7 @@
                     <thead class="thead-dark">
                         <tr>
                             {{-- <th><input type="checkbox" id="select-all"></th> --}}
-                            <th>الرقم</th>
+                            <th>رقم الفاتورة</th>
                             <th>العميل</th>
                             <th>المبلغ الإجمالي</th>
                             <th>المدفوع</th>
@@ -82,22 +82,49 @@
 </div>
 @endsection
 
-@push('scripts')
-<script>
-    // تأكيد تحديد الكل (إن تم تفعيله مستقبلاً)
-    // $('#select-all').on('change', function () {
-    //     $('input[name="selected_ids[]"]').prop('checked', this.checked);
-    // });
 
-    // تهيئة DataTable
-    $(document).ready(function () {
+
+@push('scripts')
+
+<!-- Buttons extensions -->
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/dataTables.buttons.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.html5.min.js"></script>
+<script src="https://cdn.datatables.net/buttons/2.4.1/js/buttons.print.min.js"></script>
+
+<!-- JSZip required for Excel export -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+$(document).ready(function () {
+    if ($('#sales-table').length) {
         $('#sales-table').DataTable({
+            dom: '<"d-flex justify-content-between align-items-center mb-3"Bf>rtip',
+            buttons: [
+                {
+                    extend: 'excelHtml5',
+                    text: '<i class="fas fa-file-excel"></i> تصدير Excel',
+                    className: 'btn btn-success btn-sm me-2',
+                    exportOptions: {
+                        columns: ':not(:last-child)'
+                    }
+                },
+                {
+                    extend: 'print',
+                    text: '<i class="fas fa-print"></i> طباعة',
+                    className: 'btn btn-primary btn-sm',
+                    exportOptions: {
+                        columns: ':not(:last-child)'
+                    }
+                }
+            ],
             responsive: true,
             autoWidth: false,
             language: {
                 url: "{{ asset('assets/admin/js/ar.json') }}"
             }
         });
-    });
+    }
+});
+
 </script>
 @endpush

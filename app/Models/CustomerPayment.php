@@ -46,5 +46,17 @@ class CustomerPayment extends Model
 {
     return $this->belongsTo(\App\Models\PaymentMethod::class);
 }
+public function history(Customer $customer)
+{
+    $customer->load([
+        'sales.products',
+        'sales.payments.paymentMethod',
+        'repairs.spareParts',
+        'repairs.payments.paymentMethod'
+    ]);
+
+    return view('customers.history', compact('customer'));
+}
+
 
 }

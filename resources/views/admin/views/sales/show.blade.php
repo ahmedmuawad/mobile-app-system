@@ -161,25 +161,29 @@
             </tr>
         </table>
 
-        @if($sale->customerPayments && $sale->customerPayments->count())
-            <h5 class="mt-3">سجل الدفعات:</h5>
-            <table class="table table-sm table-striped table-bordered text-center">
-                <thead>
-                    <tr>
-                        <th>التاريخ</th>
-                        <th>المبلغ</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($sale->customerPayments as $payment)
-                        <tr>
-                            <td>{{ \Carbon\Carbon::parse($payment->payment_date)->format('Y-m-d') }}</td>
-                            <td>{{ number_format($payment->amount, 2) }} جنيه</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        @endif
+@if($sale->payments && $sale->payments->count())
+    <h5 class="mt-3">سجل الدفعات:</h5>
+    <table class="table table-sm table-striped table-bordered text-center">
+        <thead>
+            <tr>
+                <th>التاريخ</th>
+                <th>المبلغ</th>
+                <th>طريقة الدفع</th>
+                <th>المرجع</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach($sale->payments as $payment)
+                <tr>
+                    <td>{{ $payment->created_at->format('Y-m-d') }}</td>
+                    <td>{{ number_format($payment->amount, 2) }} جنيه</td>
+                    <td>{{ $payment->paymentMethod?->name ?? 'غير محددة' }}</td>
+                    <td>{{ $payment->reference ?? '-' }}</td>
+                </tr>
+            @endforeach
+        </tbody>
+    </table>
+@endif
 
         <!-- الفوتر -->
         <hr>

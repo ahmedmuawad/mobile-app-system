@@ -32,45 +32,32 @@
                 <div class="card-body table-responsive p-0">
             @if($customers->count() > 0)
                 <table id="customers-table" class="table table-bordered table-striped text-center">
-                    <thead>
-                        <tr>
-                            <th>الاسم</th>
-                            <th>الهاتف</th>
-                            <th>البريد الإلكتروني</th>
-                            <th style="width: 180px;">الإجراءات</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($customers as $customer)
-                            <tr>
-                                <td>{{ $customer->name }}</td>
-                                <td>{{ $customer->phone ?? '-' }}</td>
-                                <td>{{ $customer->email ?? '-' }}</td>
-                                <td>
-                                    <div class="btn-group">
-                                        <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                                            <i class="fas fa-ellipsis-v"></i> اختر إجراء
-                                        </button>
-                                        <div class="dropdown-menu dropdown-menu-right">
-                                            <a href="{{ route('admin.customers.show', $customer->id) }}" class="dropdown-item">
-                                                <i class="fas fa-eye text-info me-2"></i> عرض
-                                            </a>
-                                            <a href="{{ route('admin.customers.edit', $customer->id) }}" class="dropdown-item">
-                                                <i class="fas fa-edit text-warning me-2"></i> تعديل
-                                            </a>
-                                            <form action="{{ route('admin.customers.destroy', $customer->id) }}" method="POST" onsubmit="return confirm('هل أنت متأكد من الحذف؟');">
-                                                @csrf
-                                                @method('DELETE')
-                                                <button type="submit" class="dropdown-item text-danger">
-                                                    <i class="fas fa-trash-alt me-2"></i> حذف
-                                                </button>
-                                            </form>
-                                        </div>
-                                    </div>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
+<thead>
+    <tr>
+        <th>الاسم</th>
+        <th>الهاتف</th>
+        <th>البريد الإلكتروني</th>
+        <th>إجمالي المتبقي</th>
+        <th>سجل العميل</th>
+
+    </tr>
+</thead>
+<tbody>
+    @foreach($customers as $customer)
+        <tr>
+            <td>{{ $customer->name }}</td>
+            <td>{{ $customer->phone ?? '-' }}</td>
+            <td>{{ $customer->email ?? '-' }}</td>
+            <td>{{ number_format($customer->total_due, 2) }} ج.م</td>
+            <td>
+                <a href="{{ route('admin.customers.history', $customer->id) }}" class="btn btn-info btn-sm">
+                    <i class="fas fa-history"></i> عرض السجل
+                </a>
+            </td>
+        </tr>
+    @endforeach
+</tbody>
+
                 </table>
 
                 <!-- روابط الترقيم -->

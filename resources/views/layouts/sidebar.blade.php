@@ -20,7 +20,7 @@
                 <li class="nav-item">
                     <a href="{{ route('admin.home') }}" class="nav-link {{ request()->routeIs('admin.home') ? 'active' : '' }}">
                         <svg class="nav-icon" width="20" height="20" fill="#0984e3" viewBox="0 0 24 24">
-                            <path d="M3 9.5L12 4l9 5.5M4 10v10h16V10" />
+                            <path d="M12 3l9 9h-3v9h-12v-9h-3z"/>
                         </svg>
                         <p class="ms-2">الصفحة الرئيسية</p>
                     </a>
@@ -31,8 +31,8 @@
                 <li class="nav-item">
                     <a href="{{ route('admin.packages.index') }}" class="nav-link {{ request()->is('admin/packages*') ? 'active' : '' }}">
                         <svg class="nav-icon" width="16" height="16" fill="#6c5ce7" viewBox="0 0 24 24">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/>
-                            <path d="M7 7h10v10H7z"/>
+                            <circle cx="12" cy="12" r="10" stroke="none" />
+                            <path d="M8 12l4 4 4-8" stroke="#fff" stroke-width="2" fill="none" />
                         </svg>
                         <p class="ms-2">الباقات</p>
                     </a>
@@ -44,8 +44,8 @@
                 <li class="nav-item">
                     <a href="{{ route('admin.modules.index') }}" class="nav-link {{ request()->is('admin/modules*') ? 'active' : '' }}">
                         <svg class="nav-icon" width="16" height="16" fill="#6c5ce7" viewBox="0 0 24 24">
-                            <rect x="3" y="3" width="18" height="18" rx="2"/>
-                            <path d="M7 7h10v10H7z"/>
+                            <rect x="4" y="4" width="16" height="16" rx="2" ry="2" />
+                            <path d="M8 12h8" stroke="#fff" stroke-width="2"/>
                         </svg>
                         <p class="ms-2">الموديولز</p>
                     </a>
@@ -109,6 +109,17 @@
                             <path d="M3 7l9-5 9 5"/>
                         </svg>
                         <p class="ms-2">المنتجات</p>
+                    </a>
+                </li>
+                @endif
+                                @if(in_array('products', $modules) || auth()->user()->role === 'super_admin')
+                <li class="nav-item">
+                    <a href="{{ route('admin.stock_alerts.index') }}" class="nav-link {{ request()->is('admin/stock-alerts*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#e17055" viewBox="0 0 24 24">
+                            <path d="M12 2a7 7 0 0 1 7 7v5l3 3H2l3-3V9a7 7 0 0 1 7-7z" />
+                            <circle cx="12" cy="17" r="1" fill="#fff" />
+                        </svg>
+                        <p class="ms-2">تنبيهات المخزن</p>
                     </a>
                 </li>
                 @endif

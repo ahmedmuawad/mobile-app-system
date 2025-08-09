@@ -12,13 +12,10 @@ class StockService
 {
     /**
      * Increase stock for a branch/product.
-     * NOTE: $branchId first, $productId second.
      */
     public static function increaseStock(int $branchId, int $productId, float $qty, string $movementType = 'purchase', array $meta = [])
     {
-        // تأكد إن الفرع موجود
         if (!Branch::where('id', $branchId)->exists()) {
-            // بدل ما نكسر التطبيق نرمي Exception واضح
             throw new \InvalidArgumentException("Branch with id {$branchId} does not exist.");
         }
 
@@ -91,19 +88,31 @@ class StockService
     }
 
     /**
-     * Update stock alert (last_notified_at) if threshold reached.
+     * Create/update/delete stock alerts based on current stock.
      */
     protected static function checkAlert(int $branchId, int $productId, float $currentStock)
     {
-        $alert = StockAlert::where('branch_id', $branchId)
+        $bp = BranchProduct::where('branch_id', $branchId)
             ->where('product_id', $productId)
-            ->where('is_active', 1)
             ->first();
 
-        if ($alert && $currentStock <= (float) $alert->threshold) {
-            $alert->last_notified_at = now();
-            $alert->save();
-            // TODO: dispatch notifications (email/whatsapp/in-app) if you want
+        $threshold = (float) ($bp->low_stock_threshold ?? 0);
+
+        if ($threshold > 0 && $currentStock <= $threshold) {
+            // إنشاء أو تحديث التنبيه
+            StockAlert::updateOrCreate(
+                ['branch_id' => $branchId, 'product_id' => $productId],
+                [
+                    'threshold' => $threshold,
+                    'is_active' => 1,
+                    'last_notified_at' => now()
+                ]
+            );
+        } else {
+            // حذف التنبيه لو الكمية بقت أعلى من الحد
+            StockAlert::where('branch_id', $branchId)
+                ->where('product_id', $productId)
+                ->delete();
         }
     }
 }
