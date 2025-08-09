@@ -86,6 +86,8 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
     Route::middleware(['set.company','module:sales'])->group(function () {
         Route::resource('sales', SaleController::class);
         Route::delete('sales/bulk-delete', [SaleController::class, 'bulkDelete'])->name('sales.bulkDelete');
+        Route::resource('payment-methods', \App\Http\Controllers\Admin\PaymentMethodController::class);
+
     });
 
     // ✅ الإعدادات
@@ -181,4 +183,9 @@ Route::prefix('admin')->middleware('auth')->name('admin.')->group(function () {
 
     // ✅ إدارة الشركات
     Route::resource('companies', CompanyController::class);
+
+
+    // طرق الدفع
+    Route::resource('payment-methods', \App\Http\Controllers\Admin\PaymentMethodController::class);
+
 });

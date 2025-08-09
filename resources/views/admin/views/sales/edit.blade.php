@@ -2,243 +2,162 @@
 
 @section('title', 'تعديل الفاتورة')
 
+@push('style')
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    .product-cell {
+        max-width: 250px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .product-cell .select2-container {
+        width: 100% !important;
+    }
+
+    .product-cell .select2-selection {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .select2-results__option {
+        white-space: normal !important;
+    }
+</style>
+@endpush
+
 @section('content')
 <div class="container-fluid">
     <h1 class="mb-4">تعديل الفاتورة رقم #{{ $sale->id }}</h1>
 
-    @if($errors->any())
+    @if ($errors->any())
         <div class="alert alert-danger">
-            <ul class="mb-0">
-                @foreach($errors->all() as $error)
+            <ul>
+                @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
             </ul>
         </div>
     @endif
 
-    <form action="{{ route('admin.sales.update', $sale->id) }}" method="POST">
+    <form id="sale-form" method="POST" action="{{ route('admin.sales.update', $sale->id) }}">
         @csrf
         @method('PUT')
 
-        <!-- اختيار العميل -->
-        <div class="form-group">
-            <label>اختر العميل (اختياري):</label>
-            <select name="customer_id" class="form-control">
-                <option value="">-- عميل يدوي --</option>
+        <input type="hidden" name="branch_id" value="{{ session('current_branch_id') }}">
+
+        <div class="mb-3">
+            <label for="customer_id" class="form-label">اختيار عميل مسجل</label>
+            <select name="customer_id" id="customer_id" class="form-control">
+                <option value="">-- اختر عميل --</option>
                 @foreach($customers as $customer)
-                    <option value="{{ $customer->id }}" {{ $sale->customer_id == $customer->id ? 'selected' : '' }}>
-                        {{ $customer->name }}
-                    </option>
+                    <option value="{{ $customer->id }}" {{ $sale->customer_id == $customer->id ? 'selected' : '' }}>{{ $customer->name }}</option>
                 @endforeach
             </select>
         </div>
 
-        <!-- اسم العميل اليدوي -->
-        <div class="form-group">
-            <label>أو اسم العميل يدويًا:</label>
-            <input type="text" name="customer_name" class="form-control" value="{{ old('customer_name', $sale->customer_name) }}">
+        <div class="mb-3">
+            <label for="customer_name" class="form-label">أو أدخل اسم عميل يدوي</label>
+            <input type="text" name="customer_name" id="customer_name" class="form-control" value="{{ old('customer_name', $sale->customer_name) }}">
         </div>
-        <!-- الأصناف -->
-        <h4 class="mt-4">الأصناف المباعة</h4>
-        <div class="table-responsive">
-            <table class="table table-bordered" id="items-table">
-                <thead>
-                    <tr>
-                        <th width="30%">المنتج</th>
-                        <th>الكمية</th>
-                        <th>السعر قبل الضريبة</th>
-                        <th>الضريبة المضافة</th>
-                        <th>السعر بعد الضريبة</th>
-                        <th>نوع السعر</th>
-                        <th>إجمالي الصنف</th>
-                        <th>الإجراء</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($sale->saleItems as $index => $item)
-                        @php
-                            $product = collect($branchProducts)->firstWhere('id', $item->product_id);
-                            $taxRate = $product['tax_percentage'] ?? 0;
-                            $taxIncluded = $product['tax_included'] ?? 0;
-                            $base = $item->sale_price;
-                            $tax = 0;
-                            $final = $item->sale_price;
-                            $taxType = 'بدون ضريبة';
-                            if ($taxRate > 0) {
-                                if ($taxIncluded) {
-                                    $base = $item->sale_price / (1 + $taxRate / 100);
-                                    $tax = $item->sale_price - $base;
-                                    $taxType = "شامل ($taxRate%)";
-                                } else {
-                                    $tax = $base * ($taxRate / 100);
-                                    $final = $base + $tax;
-                                    $taxType = "غير شامل ($taxRate%)";
-                                }
-                            }
-                        @endphp
-                        <tr>
-                            <td class="product-cell">
-                                <select name="items[{{ $index }}][product_id]" class="form-control product-select" data-index="{{ $index }}">
-                                    <option value="">-- اختر منتج --</option>
-                                    @foreach($branchProducts as $prod)
-                                        <option value="{{ $prod['id'] }}"
-                                            data-price="{{ $prod['price'] }}"
-                                            data-barcode="{{ $prod['barcode'] }}"
-                                            data-category="{{ $prod['category_id'] }}"
-                                            data-brand="{{ $prod['brand_id'] }}"
-                                            data-tax-included="{{ $prod['tax_included'] }}"
-                                            data-tax-percentage="{{ $prod['tax_percentage'] }}"
-                                            {{ $item->product_id == $prod['id'] ? 'selected' : '' }}>
-                                            {{ $prod['name'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </td>
-                            <td><input type="number" name="items[{{ $index }}][quantity]" class="form-control quantity-input" value="{{ $item->quantity }}" min="1"></td>
-                            <td><input type="number" class="form-control base-price" value="{{ round($base,2) }}" readonly><input type="hidden" name="items[{{ $index }}][sale_price]" class="sale-price-hidden" value="{{ round($final,2) }}"></td>
-                            <td><input type="number" class="form-control tax-value" value="{{ round($tax,2) }}" readonly></td>
-                            <td><input type="number" class="form-control final-price" value="{{ round($final,2) }}" readonly></td>
-                            <td><input type="text" class="form-control tax-type" value="{{ $taxType }}" readonly></td>
-                            <td><input type="number" class="form-control item-total" readonly></td>
-                            <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
-                        </tr>
+
+        <hr>
+
+        <div class="row mb-3">
+            <div class="col-md-4">
+                <label>بحث بالباركود</label>
+                <input type="text" id="barcode-search" class="form-control" placeholder="اكتب الباركود">
+            </div>
+            <div class="col-md-4">
+                <label>فلترة حسب التصنيف</label>
+                <select id="category-filter" class="form-control">
+                    <option value="">-- كل التصنيفات --</option>
+                    @php $categories = collect($branchProducts)->pluck('category_id')->unique()->filter(); @endphp
+                    @foreach($categories as $catId)
+                        @php $cat = \App\Models\Category::find($catId); @endphp
+                        @if($cat)
+                            <option value="{{ $cat->id }}">{{ $cat->name }}</option>
+                        @endif
                     @endforeach
-                </tbody>
-            </table>
+                </select>
+            </div>
+            <div class="col-md-4">
+                <label>فلترة حسب البراند</label>
+                <select id="brand-filter" class="form-control">
+                    <option value="">-- كل البراندات --</option>
+                    @php $brands = collect($branchProducts)->pluck('brand_id')->unique()->filter(); @endphp
+                    @foreach($brands as $brandId)
+                        @php $brand = \App\Models\Brand::find($brandId); @endphp
+                        @if($brand)
+                            <option value="{{ $brand->id }}">{{ $brand->name }}</option>
+                        @endif
+                    @endforeach
+                </select>
+            </div>
         </div>
+
+        <h4>الأصناف المباعة</h4>
+
+        <table class="table table-bordered" id="items-table">
+            <thead>
+                <tr>
+                    <th width="30%">المنتج</th>
+                    <th>الكمية</th>
+                    <th>السعر قبل الضريبة</th>
+                    <th>الضريبة المضافة</th>
+                    <th>السعر بعد الضريبة</th>
+                    <th>نوع السعر</th>
+                    <th>إجمالي الصنف</th>
+                    <th>الإجراء</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{-- سيتم تعبئة الأصناف عبر جافاسكربت على أساس بيانات saleItems --}}
+            </tbody>
+        </table>
+
         <button type="button" class="btn btn-success mb-3" id="add-row">إضافة صنف</button>
 
-        <!-- الخصم -->
         <div class="form-group">
-            <label>الخصم (جنيه):</label>
-        <input type="number" step="0.01" name="discount" id="discount" class="form-control" value="{{ old('discount', $sale->discount ?? 0) }}">        </div>
+            <label>الخصم (جنيه)</label>
+            <input type="number" step="0.01" name="discount" id="discount" class="form-control" value="{{ old('discount', $sale->discount ?? 0) }}">
+        </div>
 
-        <!-- الإجماليات بعد الأصناف مباشرة -->
         <div class="row mt-4">
             <div class="col-md-4">
-                <div class="form-group">
-                    <label>الإجمالي قبل الضريبة:</label>
-                    <input type="number" id="total-before-tax" class="form-control" readonly>
-                </div>
+                <label>الإجمالي قبل الضريبة:</label>
+                <input type="number" id="total-before-tax" class="form-control" readonly>
             </div>
             <div class="col-md-4">
-                <div class="form-group">
-                    <label>قيمة الضريبة:</label>
-                    <input type="number" id="total-tax" class="form-control" readonly>
-                </div>
+                <label>قيمة الضريبة:</label>
+                <input type="number" id="total-tax" class="form-control" readonly>
             </div>
             <div class="col-md-4">
-                <div class="form-group">
-                    <label>الإجمالي بعد الضريبة:</label>
-                    <input type="number" id="total-after-tax" class="form-control" readonly>
-                </div>
+                <label>الإجمالي بعد الضريبة:</label>
+                <input type="number" id="total-after-tax" class="form-control" readonly>
             </div>
         </div>
 
         <div class="row">
-            <div class="col-md-4">
-                <div class="form-group">
-                    <label>المبلغ المدفوع:</label>
-                    <input type="number" name="initial_payment" id="initial-payment" class="form-control" step="0.01" value="{{ old('initial_payment', $initialPayment ?? 0) }}">
-                </div>
+            <div class="col-md-6">
+                <label>الدفعة المقدّمة:</label>
+                <input type="number" name="initial_payment" id="initial-payment" class="form-control" value="{{ old('initial_payment', $initialPayment ?? 0) }}" step="0.01">
             </div>
-            <div class="col-md-4">
-                <div class="form-group">
-                    <label>المبلغ المتبقي:</label>
-                    <div class="input-group">
-                        <input type="number" id="remaining-amount" class="form-control" value="{{ number_format($remaining ?? 0, 2) }}" readonly>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4">
-                <div class="form-group">
-                    <label>دفعة جديدة (اختياري):</label>
-                    <input type="number" name="new_payment" class="form-control" step="0.01" min="0" value="0">
-                </div>
+            <div class="col-md-6">
+                <label>المتبقي:</label>
+                <input type="number" id="remaining-amount" class="form-control" value="{{ number_format($remaining ?? 0, 2) }}" readonly>
             </div>
         </div>
 
-        <button type="submit" class="btn btn-primary">حفظ التعديلات</button>
+        {{-- استدعاء الـ partial الخاص بطرق الدفع --}}
+        @include('admin.views.sales.partials.payment_methods_edit')
+
+        <br>
+        <button type="submit" class="btn btn-primary" id="save-btn">حفظ التعديلات</button>
         <a href="{{ route('admin.sales.index') }}" class="btn btn-light">إلغاء</a>
     </form>
-
-    {{-- جدول ملخص الأصناف --}}
-    <div class="table-responsive">
-        <table class="table table-bordered text-center mt-4">
-        <thead>
-            <tr>
-                <th>المنتج</th>
-                <th>الكمية</th>
-                <th>السعر قبل الضريبة</th>
-                <th>نسبة الضريبة</th>
-                <th>قيمة الضريبة</th>
-                <th>السعر بعد الضريبة</th>
-                <th>إجمالي الصنف</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($sale->saleItems as $item)
-                @php
-                    $product = $products->where('id', $item->product_id)->first();
-                    $taxRate = $product?->tax_percentage ?? 0;
-
-                    if ($product && $product->is_tax_included) {
-                        $base = $item->sale_price / (1 + $taxRate / 100);
-                        $taxValue = $item->sale_price - $base;
-                        $priceWithTax = $item->sale_price;
-                    } else {
-                        $base = $item->sale_price;
-                        $taxValue = $base * ($taxRate / 100);
-                        $priceWithTax = $base + $taxValue;
-                    }
-                    $subtotal = $priceWithTax * $item->quantity;
-                @endphp
-                <tr>
-                    <td>{{ $item->product_name }}</td>
-                    <td>{{ $item->quantity }}</td>
-                    <td>{{ number_format($base, 2) }}</td>
-                    <td>{{ $taxRate }}%</td>
-                    <td>{{ number_format($taxValue, 2) }}</td>
-                    <td>{{ number_format($priceWithTax, 2) }}</td>
-                    <td>{{ number_format($subtotal, 2) }}</td>
-                </tr>
-            @endforeach
-        </tbody>
-    </table>
-    </div>
-
-    {{-- ملخص الفاتورة --}}
-    <h5 class="mt-4">ملخص الفاتورة:</h5>
-    <table class="table table-bordered text-center">
-        <tr>
-            <th>الإجمالي قبل الضريبة</th>
-            <td>
-                {{ number_format($sale->saleItems->sum(fn($item) => $item->base_price * $item->quantity), 2) }} جنيه
-            </td>
-        </tr>
-        <tr>
-            <th>قيمة الضريبة</th>
-            <td>
-                {{ number_format($sale->saleItems->sum(fn($item) => $item->tax_value * $item->quantity), 2) }} جنيه
-            </td>
-        </tr>
-        <tr>
-            <th>الإجمالي بعد الضريبة</th>
-            <td>
-                {{ number_format($sale->saleItems->sum(fn($item) => $item->sale_price * $item->quantity), 2) }} جنيه
-            </td>
-        </tr>
-        @if($sale->discount > 0)
-        <tr>
-            <th>الخصم</th>
-            <td>{{ number_format($sale->discount, 2) }} جنيه</td>
-        </tr>
-        @endif
-        <tr>
-            <th>الإجمالي بعد الخصم</th>
-            <td>{{ number_format($sale->total, 2) }} جنيه</td>
-        </tr>
-    </table>
 </div>
 @endsection
 
@@ -247,6 +166,10 @@
 <script>
 $(document).ready(function() {
     const products = @json($branchProducts);
+    const existingItems = @json($sale->saleItems->map(fn($item) => [
+        'product_id' => $item->product_id,
+        'quantity' => $item->quantity
+    ]));
 
     function round(val) {
         return Math.round(val * 100) / 100;
@@ -263,7 +186,10 @@ $(document).ready(function() {
     function updateIndexes() {
         $('#items-table tbody tr').each(function(i) {
             $(this).find('[name]').each(function() {
-                $(this).attr('name', $(this).attr('name').replace(/items\[\d+\]/, `items[${i}]`));
+                const name = $(this).attr('name');
+                if (name) {
+                    $(this).attr('name', name.replace(/items\[\d+\]/, `items[${i}]`));
+                }
             });
         });
     }
@@ -288,9 +214,16 @@ $(document).ready(function() {
         $('#total-tax').val(round(totalTax));
         $('#total-after-tax').val(round(totalAfter));
 
+        let totalPaid = 0;
+        $('#payments-table tbody tr').each(function(){
+            let amount = parseFloat($(this).find('input[name*="[amount]"]').val()) || 0;
+            totalPaid += amount;
+        });
+
         const discount = parseFloat($('#discount').val()) || 0;
-        const paid = parseFloat($('#initial-payment').val()) || 0;
-        const remaining = Math.max(totalAfter - discount - paid, 0);
+        const remaining = Math.max(totalAfter - discount - totalPaid, 0);
+
+        $('#initial-payment').val(round(totalPaid));
         $('#remaining-amount').val(round(remaining));
     }
 
@@ -341,7 +274,7 @@ $(document).ready(function() {
 
     function fillProductData(row, selectedOption) {
         const base = parseFloat(selectedOption.data('price')) || 0;
-        const taxIncluded = selectedOption.data('tax-included') == 1;
+        const taxIncluded = selectedOption.data('tax-included') == 1 || selectedOption.data('tax-included') === true;
         const taxRate = parseFloat(selectedOption.data('tax-percentage')) || 0;
 
         let basePrice = base, tax = 0, finalPrice = base, taxType = 'شامل';
@@ -365,6 +298,10 @@ $(document).ready(function() {
         row.find('.tax-value').val(round(tax));
         row.find('.final-price').val(round(finalPrice));
         row.find('.tax-type').val(taxType);
+
+        const qty = parseFloat(row.find('.quantity-input').val()) || 1;
+        row.find('.item-total').val(round(finalPrice * qty));
+
         updateTotals();
     }
 
@@ -393,29 +330,35 @@ $(document).ready(function() {
         if (productId) {
             row.find('.product-select').val(productId).trigger('change');
         }
+
         row.find('.product-select').select2({ dir: "rtl", width: '100%' });
     }
 
-    $('#add-row').click(function() {
-        createRow();
-    });
-
-    $(document).on('change', '.product-select', function() {
-        const selected = $(this).find('option:selected');
-        fillProductData($(this).closest('tr'), selected);
-    });
-
-    $(document).on('input', '.quantity-input', function() {
-        updateTotals();
-    });
-
+    // إزالة صف
     $(document).on('click', '.btn-remove-row', function() {
         $(this).closest('tr').remove();
         updateIndexes();
         updateTotals();
     });
 
-    $('#barcode-search').on('input', function () {
+    // تغيير اختيار المنتج
+    $(document).on('change', '.product-select', function() {
+        const selected = $(this).find('option:selected');
+        fillProductData($(this).closest('tr'), selected);
+    });
+
+    // تحديث الكمية
+    $(document).on('input', '.quantity-input', function() {
+        updateTotals();
+    });
+
+    // إضافة صف جديد
+    $('#add-row').click(function() {
+        createRow();
+    });
+
+    // بحث بالباركود
+    $('#barcode-search').on('input', function() {
         const val = this.value.trim();
         if (val.length >= 8) {
             const option = $(`.product-select option[data-barcode="${val}"]`).first();
@@ -431,9 +374,14 @@ $(document).ready(function() {
         }
     });
 
+    // الفلاتر تغيير
     $('#category-filter, #brand-filter').change(applyFilters);
-    $('#discount, #initial-payment').on('input', updateTotals);
 
+    // تحديث الإجماليات عند تغير الخصم أو الدفعة المقدمة
+    $('#discount').on('input', updateTotals);
+    $('#initial-payment').on('input', updateTotals);
+
+    // التحكم في اختيار العميل يدوي/مسجل
     $('#customer_name').on('input', function() {
         if ($(this).val().trim()) {
             $('#customer_id').val('').trigger('change');
@@ -443,16 +391,17 @@ $(document).ready(function() {
         }
     });
 
-    // عند تحميل الصفحة: املى بيانات الأصناف القديمة
-    $('#items-table tbody tr').each(function() {
-        const select = $(this).find('.product-select');
-        const selected = select.find('option:selected');
-        fillProductData($(this), selected);
+    // تهيئة select2 للفلاتر والعملاء
+    $('#customer_id, #category-filter, #brand-filter').select2({ dir: "rtl", width: '100%' });
+
+    // عند تحميل الصفحة - ننظف tbody ونملأ الأصناف المخزنة
+    $('#items-table tbody').empty();
+    existingItems.forEach(item => {
+        createRow(item.product_id, item.quantity);
     });
 
-    // تفعيل select2 للفلاتر والعملاء
-    $('#customer_id, #category-filter, #brand-filter').select2({ dir: "rtl", width: '100%' });
+    // احسب الإجماليات بعد التحميل
+    updateTotals();
 });
 </script>
 @endpush
-

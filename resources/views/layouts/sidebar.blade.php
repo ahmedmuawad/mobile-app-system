@@ -138,6 +138,19 @@
                 </li>
                 @endif
 
+                <!-- طرق الدفع -->
+                @if(in_array('sales', $modules) || auth()->user()->role === 'super_admin')
+                <li class="nav-item">
+                    <a href="{{ route('admin.payment-methods.index') }}" class="nav-link {{ request()->is('admin/payment-methods*') ? 'active' : '' }}">
+                        <svg class="nav-icon" width="20" height="20" fill="#00b894" viewBox="0 0 24 24">
+                            <path d="M3 17l6-6 4 4 8-8"/>
+                            <circle cx="19" cy="5" r="2"/>
+                        </svg>
+                        <p class="ms-2">طرق الدفع </p>
+                    </a>
+                </li>
+                @endif
+
                 <!-- فواتير الصيانة -->
                 @if(in_array('repairs', $modules) || auth()->user()->role === 'super_admin')
                 <li class="nav-item">

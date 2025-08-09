@@ -42,4 +42,9 @@ class CustomerPayment extends Model
     {
         return $this->belongsTo(Branch::class);
     }
+    public function paymentMethod()
+{
+    return $this->belongsTo(\App\Models\PaymentMethod::class);
+}
+
 }

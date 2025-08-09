@@ -56,6 +56,10 @@ public function products()
         ->withPivot(['quantity', 'sale_price', 'purchase_price', 'tax_value', 'tax_percentage', 'cost_at_sale'])
         ->withTimestamps();
 }
+public function payments()
+{
+    return $this->hasMany(\App\Models\SalePayment::class);
+}
 
 
 }

@@ -41,8 +41,8 @@
         </div>
     @endif
 
-    <form id="sale-form" method="POST">
-        @csrf
+<form id="sale-form" method="POST" action="{{ route('admin.sales.store') }}">
+            @csrf
 
         @php $branch_id = session('current_branch_id'); @endphp
         <input type="hidden" name="branch_id" value="{{ $branch_id }}">
@@ -148,6 +148,10 @@
             </div>
         </div>
 
+        {{-- استدعاء الـ partial الخاص بطرق الدفع --}}
+        @include('admin.views.sales.partials.payment_methods')
+
+
         <br>
         <button type="submit" class="btn btn-primary" id="save-btn">حفظ الفاتورة</button>
     </form>
@@ -183,6 +187,7 @@ $(document).ready(function() {
     function updateTotals() {
         let totalBefore = 0, totalTax = 0, totalAfter = 0;
 
+        // الأصناف
         $('#items-table tbody tr').each(function() {
             const qty = parseFloat($(this).find('.quantity-input').val()) || 0;
             const base = parseFloat($(this).find('.base-price').val()) || 0;
@@ -200,9 +205,17 @@ $(document).ready(function() {
         $('#total-tax').val(round(totalTax));
         $('#total-after-tax').val(round(totalAfter));
 
+        // طرق الدفع
+        let totalPaid = 0;
+        $('#payments-table tbody tr').each(function(){
+            let amount = parseFloat($(this).find('input[name*="[amount]"]').val()) || 0;
+            totalPaid += amount;
+        });
+
         const discount = parseFloat($('#discount').val()) || 0;
-        const paid = parseFloat($('#initial-payment').val()) || 0;
-        const remaining = Math.max(totalAfter - discount - paid, 0);
+        const remaining = Math.max(totalAfter - discount - totalPaid, 0);
+
+        $('#initial-payment').val(round(totalPaid));
         $('#remaining-amount').val(round(remaining));
     }
 
@@ -282,8 +295,7 @@ $(document).ready(function() {
 
     function createRow() {
         const index = $('#items-table tbody tr').length;
-        const row = $(`
-            <tr>
+        const row = $(`<tr>
                 <td class="product-cell">
                     <select name="items[${index}][product_id]" class="form-control product-select" data-index="${index}">
                         <option value="">-- اختر منتج --</option>
@@ -296,8 +308,7 @@ $(document).ready(function() {
                 <td><input type="text" class="form-control tax-type" readonly></td>
                 <td><input type="number" class="form-control item-total" readonly></td>
                 <td><button type="button" class="btn btn-danger btn-sm btn-remove-row">حذف</button></td>
-            </tr>
-        `);
+            </tr>`);
 
         $('#items-table tbody').append(row);
         row.find('.product-select').select2({ dir: "rtl", width: '100%' });
@@ -344,7 +355,7 @@ $(document).ready(function() {
     });
 
     $('#category-filter, #brand-filter').change(applyFilters);
-    $('#discount, #initial-payment').on('input', updateTotals);
+    $('#discount').on('input', updateTotals);
 
     $('#customer_name').on('input', function() {
         if ($(this).val().trim()) {
@@ -355,14 +366,48 @@ $(document).ready(function() {
         }
     });
 
-    $('#sale-form').on('submit', function(e) {
+    // === طرق الدفع ===
+    let paymentIndex = $('#payments-table tbody tr').length;
+
+    $(document).off('click', '#add-payment-row').on('click', '#add-payment-row', function(e) {
         e.preventDefault();
-        const formData = $(this).serialize();
-        $.post("{{ route('admin.sales.store') }}", formData, function(response) {
-            alert('تم حفظ الفاتورة بنجاح');
-            window.location.reload();
-        }).fail(function(err) {
-            alert('حدث خطأ أثناء الحفظ');
+
+        let remaining = parseFloat($('#remaining-amount').val()) || '';
+        let row = `<tr>
+            <td>
+                <select name="payments[${paymentIndex}][payment_method_id]" class="form-control">
+                    <option value="">-- اختر --</option>
+                    @foreach(\App\Models\PaymentMethod::all() as $method)
+                        <option value="{{ $method->id }}">{{ $method->name }}</option>
+                    @endforeach
+                </select>
+            </td>
+            <td><input type="number" step="0.01" name="payments[${paymentIndex}][amount]" class="form-control" value="${remaining}"></td>
+            <td><input type="text" name="payments[${paymentIndex}][reference]" class="form-control"></td>
+            <td><button type="button" class="btn btn-danger btn-sm remove-payment-row">حذف</button></td>
+        </tr>`;
+
+        $('#payments-table tbody').append(row);
+        paymentIndex++;
+        updateTotals();
+    });
+
+    $(document).on('click', '.remove-payment-row', function(){
+        $(this).closest('tr').remove();
+        updateTotals();
+    });
+
+    $(document).on('input', '#payments-table input[name*="[amount]"]', function(){
+        updateTotals();
+    });
+
+    $('#sale-form').on('submit', function(){
+        $('#payments-table tbody tr').each(function(){
+            let method = $(this).find('select').val();
+            let amount = $(this).find('input[name*="[amount]"]').val();
+            if(method === "" && (amount === "" || parseFloat(amount) === 0)){
+                $(this).remove();
+            }
         });
     });
 
@@ -372,4 +417,3 @@ $(document).ready(function() {
 });
 </script>
 @endpush
-

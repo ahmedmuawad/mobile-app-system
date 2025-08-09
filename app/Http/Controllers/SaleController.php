@@ -10,6 +10,7 @@ use App\Models\Branch;
 use App\Models\CustomerPayment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use App\Models\SalePayment;
 
 class SaleController extends Controller
 {
@@ -32,7 +33,6 @@ class SaleController extends Controller
         $customers = Customer::all();
         $branches = Branch::all();
 
-        // جلب الفرع الحالي من الجلسة
         $branch_id = session('current_branch_id');
         $branchProducts = [];
 
@@ -67,11 +67,13 @@ class SaleController extends Controller
             'customer_id' => 'nullable|exists:customers,id',
             'customer_name' => 'nullable|string|max:255',
             'discount' => 'nullable|numeric|min:0',
-            'initial_payment' => 'nullable|numeric|min:0',
             'items' => 'required|array|min:1',
             'items.*.product_id' => 'required|exists:products,id',
             'items.*.quantity' => 'required|integer|min:1',
             'items.*.sale_price' => 'required|numeric|min:0',
+            'payments' => 'nullable|array',
+            'payments.*.payment_method_id' => 'nullable|exists:payment_methods,id',
+            'payments.*.amount' => 'nullable|numeric|min:0',
         ]);
 
         DB::beginTransaction();
@@ -98,19 +100,16 @@ class SaleController extends Controller
                 }])->findOrFail(session('current_branch_id'));
 
                 $branchProduct = $branch->products->first();
-
                 if (!$branchProduct) {
-                    return redirect()->back()->with('error', 'المنتج غير موجود في الفرع الحالي');
+                    throw new \Exception('المنتج غير موجود في الفرع الحالي');
                 }
 
                 $taxRate = is_numeric($branchProduct->pivot->tax_percentage) ? $branchProduct->pivot->tax_percentage : 0;
                 $quantity = $item['quantity'];
                 $isTaxIncluded = $branchProduct->pivot->is_tax_included ? 1 : 0;
-                // نستخدم سعر المنتج من pivot لو موجود، أو السعر من المنتج نفسه كبديل
                 $base_price = $branchProduct->pivot->price ?? $product->sale_price;
 
                 if ($isTaxIncluded) {
-                    // السعر شامل الضريبة، نحسب السعر قبل الضريبة والضريبة
                     $base_price = $base_price / (1 + $taxRate / 100);
                     $taxValue = $base_price * $taxRate / 100;
                     $sale_price = $base_price + $taxValue;
@@ -125,17 +124,6 @@ class SaleController extends Controller
 
                 $total += $subtotal;
                 $total_profit += $profit;
-
-                \Log::info('Pivot Data:', [
-                    'product_id' => $product->id,
-                    'pivot_tax_percentage' => $branchProduct->pivot->tax_percentage,
-                    'pivot_is_tax_included' => $branchProduct->pivot->is_tax_included,
-                    'pivot_price' => $branchProduct->pivot->price,
-                    'calculated_taxRate' => $taxRate,
-                    'calculated_taxValue' => isset($taxValue) ? $taxValue : null,
-                    'base_price' => $base_price,
-                    'sale_price' => $sale_price,
-                ]);
 
                 SaleItem::create([
                     'sale_id' => $sale->id,
@@ -156,23 +144,44 @@ class SaleController extends Controller
 
             $discount = $request->input('discount', 0);
             $finalTotal = $total - $discount;
-            $initialPayment = $request->input('initial_payment', 0);
-
             $sale->total = $finalTotal;
             $sale->discount = $discount;
             $sale->profit = $total_profit;
-            $sale->paid = $initialPayment;
-            $sale->remaining = $finalTotal - $initialPayment;
-            $sale->save();
 
-            if ($initialPayment > 0 && $sale->customer_id) {
-                CustomerPayment::create([
-                    'sale_id' => $sale->id,
-                    'customer_id' => $sale->customer_id,
-                    'amount' => $initialPayment,
-                    'payment_date' => now(),
-                ]);
+            // تسجيل طرق الدفع
+            $totalPaid = 0;
+            if (!empty($request->payments)) {
+                foreach ($request->payments as $p) {
+                    if (empty($p['payment_method_id']) || empty($p['amount']) || $p['amount'] <= 0) {
+                        continue;
+                    }
+
+                    SalePayment::create([
+                        'sale_id' => $sale->id,
+                        'payment_method_id' => $p['payment_method_id'],
+                        'amount' => $p['amount'],
+                        'reference' => $p['reference'] ?? null,
+                    ]);
+
+                    if ($sale->customer_id) {
+                        CustomerPayment::create([
+                            'sale_id' => $sale->id,
+                            'customer_id' => $sale->customer_id,
+                            'branch_id' => $sale->branch_id,
+                            'amount' => $p['amount'],
+                            'payment_date' => now()->toDateString(),
+                            'payment_method_id' => $p['payment_method_id'] ?? null,
+                            'notes' => 'تحصيل مرتبط بالفاتورة #' . $sale->id . ($p['reference'] ? ' - Ref: '.$p['reference'] : ''),
+                        ]);
+                    }
+
+                    $totalPaid += $p['amount'];
+                }
             }
+
+            $sale->paid = $totalPaid;
+            $sale->remaining = $finalTotal - $totalPaid;
+            $sale->save();
 
             DB::commit();
 
@@ -185,7 +194,7 @@ class SaleController extends Controller
 
     public function show($id)
     {
-        $sale = Sale::with('saleItems')->findOrFail($id);
+        $sale = Sale::with(['saleItems','payments'])->findOrFail($id);
 
         $totalBeforeTax = $sale->saleItems->sum(fn($i) => $i->quantity * $i->base_price);
         $totalTax = $sale->saleItems->sum(fn($i) => $i->quantity * $i->tax_value);
